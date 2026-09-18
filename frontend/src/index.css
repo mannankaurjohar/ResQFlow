@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-ivory text-navy antialiased min-h-screen font-sans;
+  }
+}
+
+/* Custom restrained map container */
+.leaflet-container {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif !important;
+  background-color: #EDE8DE !important;
+  border-radius: 0.75rem;
+}
+
+.leaflet-popup-content-wrapper {
+  background: #FDFBF7 !important;
+  color: #0F1E36 !important;
+  border-radius: 0.75rem !important;
+  border: 1px solid rgba(107, 124, 150, 0.2) !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 30, 54, 0.1) !important;
+}
+
+.leaflet-popup-tip {
+  background: #FDFBF7 !important;
+}
+
+/* Restrained scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F4EFE6;
+}
+::-webkit-scrollbar-thumb {
+  background: #8FA0B8;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6B7C96;
+}
