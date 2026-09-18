@@ -347,7 +347,7 @@ import {
   GisOverviewData, AnalyticsData, AuditLog, User
 } from '../types';
 
-const API_BASE = 'http://resqflow-ai-backend.onrender.com/api';
+const API_BASE = 'https://resqflow-ai-backend.onrender.com/api';
 
 const api = {
   // Demo users & auth
