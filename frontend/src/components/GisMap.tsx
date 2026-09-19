@@ -979,15 +979,7 @@ export const GisMap: React.FC<GisMapProps> = ({
   // ============================================================
 
   return (
-    <div className="
-      relative
-      rounded-xl
-      overflow-hidden
-      border
-      border-slate/20
-      shadow-soft
-      bg-ivory
-    ">
+    <div className="relative z-0 isolate rounded-xl overflow-hidden border border-slate/20 shadow-soft bg-ivory">
 
       <div
         ref={

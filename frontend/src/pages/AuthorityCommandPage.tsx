@@ -315,7 +315,7 @@ export const AuthorityCommandPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate/15">
-                {requests.map(req => {
+                {requests.filter(req => req.status !== 'DELIVERED').map(req => {
                   const isCrit = req.priority_classification === 'CRITICAL' || req.priority_score >= 80;
                   return (
                     <tr key={req.id} className={`hover:bg-ivory-50 transition-colors ${isCrit && req.status === 'PENDING' ? 'bg-red-50/40' : ''}`}>

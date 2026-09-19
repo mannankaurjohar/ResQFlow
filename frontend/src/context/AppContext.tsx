@@ -44,6 +44,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsEscalated(status.is_escalated);
     }).catch(() => {});
   }, []);
+  useEffect(() => {
+  setActivePriorityModalRequest(null);
+  setActiveMatchModalRequest(null);
+}, [activeTab]);
 
   const toggleEmergencyMode = () => {
     setIsEmergencyMode(prev => {

@@ -42,3 +42,16 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #6B7C96;
 }
+/* Keep Leaflet map controls below the navigation */
+.leaflet-control-container {
+  z-index: 1 !important;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 1 !important;
+}
+
+.leaflet-control {
+  z-index: 1 !important;
+}

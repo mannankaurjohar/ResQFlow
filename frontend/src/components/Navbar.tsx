@@ -33,7 +33,7 @@ export const Navbar: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-navy text-ivory border-b border-navy-700 shadow-md">
+    <header className="sticky top-0 z-[9999] bg-navy text-ivory border-b border-navy-700 shadow-md">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -252,7 +252,7 @@ export const Navbar: React.FC = () => {
 
         {/* ================= MOBILE MENU ================= */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-navy-700 py-3">
+  <div className="md:hidden relative z-[2000] bg-navy border-t border-navy-700 py-3">
 
             {/* Flood Relief Mode */}
             <div className="mb-3 px-2">
