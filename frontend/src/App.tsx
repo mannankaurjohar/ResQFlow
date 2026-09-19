@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -19,16 +19,26 @@ import { AuditTrailPage } from './pages/AuditTrailPage';
 const AppContent: React.FC = () => {
   const { activeTab, notification } = useApp();
 
+  // Scroll to the top whenever the user changes to another page
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeTab]);
+
   return (
     <div className="min-h-screen flex flex-col bg-ivory text-navy font-sans antialiased">
       {/* Toast Notification Alert Banner */}
       {notification && (
-        <div className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-elevated border text-xs font-semibold max-w-md animate-in slide-in-from-bottom-5 duration-200 ${
-          notification.type === 'error' ? 'bg-red-50 text-red-900 border-red-300' :
-          notification.type === 'success' ? 'bg-emerald-50 text-emerald-900 border-emerald-300' :
-          notification.type === 'warning' ? 'bg-amber-50 text-amber-900 border-amber-300' :
-          'bg-navy text-ivory border-navy-700'
-        }`}>
+        <div
+          className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-elevated border text-xs font-semibold max-w-md animate-in slide-in-from-bottom-5 duration-200 ${
+            notification.type === 'error'
+              ? 'bg-red-50 text-red-900 border-red-300'
+              : notification.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+              : notification.type === 'warning'
+              ? 'bg-amber-50 text-amber-900 border-amber-300'
+              : 'bg-navy text-ivory border-navy-700'
+          }`}
+        >
           {notification.message}
         </div>
       )}

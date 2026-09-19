@@ -194,21 +194,102 @@ class Warehouse(Base):
 
 class Inventory(Base):
     __tablename__ = "inventory"
-    id = Column(Integer, primary_key=True, index=True)
-    warehouse_id = Column(Integer, ForeignKey("warehouses.id"), nullable=False)
-    category = Column(String(80), nullable=False)
-    item_name = Column(String(150), nullable=False)
-    unit = Column(String(30), nullable=False)
-    total_quantity = Column(Float, default=0.0)
-    reserved_quantity = Column(Float, default=0.0)
-    allocated_quantity = Column(Float, default=0.0)
-    available_quantity = Column(Float, default=0.0)
-    min_threshold = Column(Float, default=100.0)
-    status = Column(String(50), default="AVAILABLE")
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-    warehouse = relationship("Warehouse", back_populates="inventory")
-    batches = relationship("InventoryBatch", back_populates="inventory")
+    id = Column(Integer, primary_key=True, index=True)
+
+    warehouse_id = Column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=False
+    )
+
+    category = Column(
+        String(80),
+        nullable=False
+    )
+
+    item_name = Column(
+        String(150),
+        nullable=False
+    )
+
+    unit = Column(
+        String(30),
+        nullable=False
+    )
+
+    total_quantity = Column(
+        Float,
+        default=0.0
+    )
+
+    reserved_quantity = Column(
+        Float,
+        default=0.0
+    )
+
+    allocated_quantity = Column(
+        Float,
+        default=0.0
+    )
+
+    available_quantity = Column(
+        Float,
+        default=0.0
+    )
+
+    min_threshold = Column(
+        Float,
+        default=100.0
+    )
+
+    status = Column(
+        String(50),
+        default="AVAILABLE"
+    )
+
+    # -------------------------------------------------
+    # INVENTORY TRUST / VERIFICATION
+    # -------------------------------------------------
+
+    verification_status = Column(
+        String(30),
+        default="UNKNOWN",
+        nullable=False
+    )
+
+    verification_source = Column(
+        String(255),
+        nullable=True
+    )
+
+    verified_by_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    verified_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.datetime.utcnow,
+        onupdate=datetime.datetime.utcnow
+    )
+
+    warehouse = relationship(
+        "Warehouse",
+        back_populates="inventory"
+    )
+
+    batches = relationship(
+        "InventoryBatch",
+        back_populates="inventory"
+    )
+   
 
 class InventoryBatch(Base):
     __tablename__ = "inventory_batches"
@@ -359,3 +440,86 @@ class AuditLog(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
     prev_hash = Column(String(64), nullable=True)
     curr_hash = Column(String(64), nullable=False)
+class OfficialWarehouse(Base):
+    __tablename__ = "official_warehouses"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    organization_name = Column(
+        String(150),
+        nullable=False
+    )
+
+    plant_code = Column(
+        String(30),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+
+    warehouse_name = Column(
+        String(120),
+        nullable=False
+    )
+
+    district = Column(
+        String(100),
+        nullable=False
+    )
+
+    taluka = Column(
+        String(100),
+        nullable=True
+    )
+
+    address = Column(
+        String(500),
+        nullable=False
+    )
+
+    godown_count = Column(
+        Integer,
+        nullable=True
+    )
+
+    capacity_mt = Column(
+        Float,
+        nullable=True
+    )
+
+    latitude = Column(
+        Float,
+        nullable=True
+    )
+
+    longitude = Column(
+        Float,
+        nullable=True
+    )
+
+    location_status = Column(
+        String(50),
+        default="PENDING_COORDINATE_VERIFICATION",
+        nullable=False
+    )
+
+    inventory_status = Column(
+        String(50),
+        default="NOT_REPORTED",
+        nullable=False
+    )
+
+    source = Column(
+        String(255),
+        nullable=False
+    )
+
+    source_verified_at = Column(
+        DateTime,
+        default=datetime.datetime.utcnow
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.datetime.utcnow
+    )

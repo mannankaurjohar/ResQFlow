@@ -1,10 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-
+from app.routers.official_warehouses_router import (
+    router as official_warehouses_router
+)
 from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.seed_data import seed_all_data
+from app.routers.public_data_router import router as public_data_router
 
 # Import routers
 from app.routers import (
@@ -65,7 +68,14 @@ app.include_router(gis_router.router, prefix=settings.API_V1_STR)
 app.include_router(simulation_router.router, prefix=settings.API_V1_STR)
 app.include_router(analytics_router.router, prefix=settings.API_V1_STR)
 app.include_router(audit_router.router, prefix=settings.API_V1_STR)
-
+app.include_router(
+    public_data_router,
+    prefix="/api",
+)
+app.include_router(
+    official_warehouses_router,
+    prefix="/api"
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os

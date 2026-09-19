@@ -13,7 +13,6 @@ router = APIRouter(prefix="/deliveries", tags=["Delivery & Logistics"])
 @router.get("", response_model=List[DeliveryResponse])
 def list_deliveries(db: Session = Depends(get_db)):
     return db.query(Delivery).order_by(Delivery.created_at.desc()).all()
-
 @router.post("/dispatch/{delivery_id}", response_model=DeliveryResponse)
 def dispatch_delivery(
     delivery_id: int,
@@ -21,41 +20,122 @@ def dispatch_delivery(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    delivery = db.query(Delivery).filter(Delivery.id == delivery_id).first()
-    if not delivery:
-        raise HTTPException(status_code=404, detail="Delivery not found")
+    delivery = (
+        db.query(Delivery)
+        .filter(Delivery.id == delivery_id)
+        .first()
+    )
 
+    if not delivery:
+        raise HTTPException(
+            status_code=404,
+            detail="Delivery not found"
+        )
+
+    # Dispatch is allowed only after allocation approval
+    if delivery.status != ReliefStatus.ALLOCATED:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Only an allocated delivery can be dispatched. "
+                f"Current status: {delivery.status.value}"
+            )
+        )
+
+    # Find or validate vehicle
+    vehicle = None
+
+    if payload and payload.vehicle_id:
+        vehicle = (
+            db.query(Vehicle)
+            .filter(Vehicle.id == payload.vehicle_id)
+            .first()
+        )
+
+        if not vehicle:
+            raise HTTPException(
+                status_code=404,
+                detail="Selected vehicle not found"
+            )
+
+        if vehicle.status != "AVAILABLE":
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Selected vehicle is not available. "
+                    f"Current status: {vehicle.status}"
+                )
+            )
+
+    else:
+        vehicle = (
+            db.query(Vehicle)
+            .filter(Vehicle.status == "AVAILABLE")
+            .first()
+        )
+
+    if not vehicle:
+        raise HTTPException(
+            status_code=409,
+            detail="No available vehicle is currently assigned to this delivery."
+        )
+
+    # Assign vehicle
+    delivery.vehicle_id = vehicle.id
+
+    if payload and payload.driver_name:
+        delivery.driver_name = payload.driver_name
+
+    if payload and payload.driver_phone:
+        delivery.driver_phone = payload.driver_phone
+
+    if payload and payload.notes:
+        delivery.notes = payload.notes
+
+    # Dispatch
     delivery.status = ReliefStatus.IN_TRANSIT
     delivery.dispatched_at = datetime.datetime.utcnow()
-    
-    if payload:
-        if payload.vehicle_id:
-            delivery.vehicle_id = payload.vehicle_id
-        if payload.driver_name:
-            delivery.driver_name = payload.driver_name
-        if payload.driver_phone:
-            delivery.driver_phone = payload.driver_phone
-        if payload.notes:
-            delivery.notes = payload.notes
 
-    # Update associated request status
-    if delivery.allocation and delivery.allocation.request:
-        delivery.allocation.request.status = RequestStatus.IN_TRANSIT
+    # Mark vehicle as in transit
+    vehicle.status = "IN_TRANSIT"
+
+    # Update associated request
+    if (
+        delivery.allocation
+        and delivery.allocation.request
+    ):
+        delivery.allocation.request.status = (
+            RequestStatus.IN_TRANSIT
+        )
 
     db.commit()
     db.refresh(delivery)
 
+    # Audit trail
     log_audit_event(
         db=db,
-        actor_id=current_user.id if current_user else None,
-        actor_name=current_user.full_name if current_user else "Logistics Dispatcher",
+        actor_id=(
+            current_user.id
+            if current_user
+            else None
+        ),
+        actor_name=(
+            current_user.full_name
+            if current_user
+            else "Logistics Dispatcher"
+        ),
         actor_role="LOGISTICS",
         action="DISPATCH_DELIVERY",
         entity_type="DELIVERY",
         entity_id=delivery.relief_id,
         previous_state="ALLOCATED",
         new_state="IN_TRANSIT",
-        reason=f"Convoy dispatched to {delivery.destination_location_name}"
+        reason=(
+            "Convoy dispatched using vehicle "
+            + str(vehicle.id)
+            + " to "
+            + delivery.destination_location_name
+        )
     )
 
     return delivery
@@ -82,19 +162,86 @@ def update_delivery_status(
         delivery.recipient_signature = payload.recipient_signature
 
     if payload.status == ReliefStatus.DELIVERED:
-        delivery.delivered_at = datetime.datetime.utcnow()
-        if not delivery.proof_photo_url:
-            delivery.proof_photo_url = "https://images.unsplash.com/photo-1547841243-eacb14453cd9?auto=format&fit=crop&w=600&q=80"
-        if not delivery.recipient_signature:
-            delivery.recipient_signature = "Digital Signature - Ward 12 Community Council"
 
-        # Update Request to DELIVERED
-        if delivery.allocation and delivery.allocation.request:
-            req = delivery.allocation.request
-            req.status = RequestStatus.DELIVERED
-            # Mark items fulfilled
-            for it in req.items:
-                it.fulfilled_quantity = it.requested_quantity
+    # Real proof-of-delivery is required.
+        if not payload.proof_photo_url:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Proof-of-delivery photo is required "
+                    "before marking the delivery as delivered."
+                )
+            )
+
+        if not payload.recipient_signature:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Recipient signature is required "
+                    "before marking the delivery as delivered."
+                )
+            )
+
+        delivery.delivered_at = datetime.datetime.utcnow()
+
+        delivery.proof_photo_url = (
+             payload.proof_photo_url
+    )
+
+    delivery.recipient_signature = (
+        payload.recipient_signature
+    )
+
+    # Update request to DELIVERED
+    if (
+        delivery.allocation
+        and delivery.allocation.request
+    ):
+        req = delivery.allocation.request
+
+        req.status = RequestStatus.DELIVERED
+
+        # Mark requested quantities as fulfilled
+        for item in req.items:
+            item.fulfilled_quantity = (
+                item.requested_quantity
+            )
+
+    # Release vehicle
+    if delivery.vehicle:
+        delivery.vehicle.status = "AVAILABLE"
+
+    # Finalize physical inventory consumption
+    if (
+        delivery.allocation
+        and delivery.allocation.items
+    ):
+        for allocation_item in delivery.allocation.items:
+
+            inventory = (
+                db.query(Inventory)
+                .filter(
+                    Inventory.warehouse_id
+                    == delivery.origin_warehouse_id,
+                    Inventory.category.ilike(
+                        f"%{allocation_item.category}%"
+                    )
+                )
+                .first()
+            )
+
+            if inventory:
+                inventory.allocated_quantity = max(
+                    0.0,
+                    inventory.allocated_quantity
+                    - allocation_item.allocated_quantity
+                )
+
+                inventory.total_quantity = max(
+                    0.0,
+                    inventory.total_quantity
+                    - allocation_item.allocated_quantity
+                )
 
         # Free vehicle
         if delivery.vehicle:

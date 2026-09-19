@@ -1,0 +1,13 @@
+plant_code,name,status,latitude,longitude,osm_type,osm_id,match_quality,matched_query,capacity_mt,godowns
+1427,Ambad,IMPORTED,19.9405513,73.7496264,w,1466071634,ADDRESS_OR_FACILITY,"MSWC Ambad, Nashik, Nashik, Maharashtra, India",2480,2
+1416,Kalwan,IMPORTED,20.4887452,74.0192793,w,1272685548,ADDRESS_OR_FACILITY,"MSWC Kalwan, Kalwan, Nashik, Maharashtra, India",3500,3
+1417,Lasalgaon,IMPORTED,20.1426837,74.2377507,n,245687316,ADDRESS_OR_FACILITY,"MSWC Lasalgaon, Niphad, Nashik, Maharashtra, India",4000,4
+1418,Malegaon (N),IMPORTED,20.5688507,74.5132497,n,7073438343,ADDRESS_OR_FACILITY,"MSWC Malegaon (N), Malegaon, Nashik, Maharashtra, India",8420,6
+1419,Manmad,IMPORTED,20.2501817,74.439395,n,6171493086,ADDRESS_OR_FACILITY,"MSWC Manmad, Nandgaon, Nashik, Maharashtra, India",11500,6
+1430,Musalgaon,IMPORTED,19.8346768,74.0535946,n,5705969375,ADDRESS_OR_FACILITY,"MSWC Musalgaon, Sinnar, Nashik, Maharashtra, India",3000,1
+1420,Nampur,IMPORTED,20.7295457,74.3109024,n,3229723853,ADDRESS_OR_FACILITY,"MSWC Nampur, Satana (Baglan), Nashik, Maharashtra, India",2000,2
+1426,Nandgaon,IMPORTED,20.3094018,74.6597622,n,1119932242,ADDRESS_OR_FACILITY,"MSWC Nandgaon, Nandgaon, Nashik, Maharashtra, India",1580,1
+1421,Ozar,NEEDS_COORDINATE_REVIEW,,,,,,,7615,6
+1422,Satana,IMPORTED,20.5979908,74.2022861,w,1271505446,ADDRESS_OR_FACILITY,"MSWC Satana, Satana (Baglan), Nashik, Maharashtra, India",5200,3
+1425,Sinner,IMPORTED,19.8972539,74.1623127,n,2746993408,ADDRESS_OR_FACILITY,"MSWC Sinner, Sinnar, Nashik, Maharashtra, India",7140,4
+1423,Wani (N),IMPORTED,20.0443391,73.8056814,w,572405041,ADDRESS_OR_FACILITY,"MSWC Wani (N), Dindori, Nashik, Maharashtra, India",2000,2

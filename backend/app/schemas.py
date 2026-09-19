@@ -220,6 +220,29 @@ class AIResourceMatchRecommendation(BaseModel):
     recommendations: List[MatchedWarehouseItem]
     remaining_shortages: List[Dict[str, Any]]
 
+class MatchedFacility(BaseModel):
+    osm_id: int
+    osm_type: str
+    name: str
+    facility_type: str
+    support_role: str
+    distance_km: float
+    address: str
+    phone: str
+    website: str
+    source: str
+    source_url: str
+    live_inventory: str
+    operational_status: str
+
+
+class AIFacilitySupportRecommendation(BaseModel):
+    request_id: int
+    request_tracking_code: str
+    location_name: str
+    summary_rationale: str
+    facilities: List[MatchedFacility]
+    
 class ApproveAllocationRequest(BaseModel):
     request_id: int
     warehouse_id: int

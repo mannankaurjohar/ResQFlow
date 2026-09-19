@@ -11,16 +11,189 @@ import {
   User
 } from '../types';
 
-const API_BASE = 'https://resqflow-ai-backend.onrender.com/api';
+export interface MatchedFacility {
+  osm_id: number;
+  osm_type: string;
+  name: string;
+  facility_type: string;
+  support_role: string;
+  distance_km: number;
+  address: string;
+  phone: string;
+  website: string;
+  source: string;
+  source_url: string;
+  live_inventory: string;
+  operational_status: string;
+}
+
+export interface AIFacilitySupportRecommendation {
+  request_id: number;
+  request_tracking_code: string;
+  location_name: string;
+  summary_rationale: string;
+  facilities: MatchedFacility[];
+}
+
+export interface PublicFacility {
+  osm_id: number;
+  osm_type: string;
+  name: string;
+  facility_type: string;
+  latitude: number;
+  longitude: number;
+  address: string;
+  phone: string;
+  website: string;
+  source: string;
+  source_url: string;
+  live_inventory: string;
+}
+
+export interface OfficialWarehouse {
+  id: number;
+  organization_name: string;
+  plant_code: string;
+  warehouse_name: string;
+  district: string;
+  taluka: string | null;
+  address: string;
+  godown_count: number | null;
+  capacity_mt: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  location_status: string;
+  inventory_status: string;
+  source: string;
+  source_verified_at: string | null;
+}
+const API_BASE = 'http://127.0.0.1:8000/api';
 
 const api = {
+  // ============================================================
+  // Public Facilities
+  // ============================================================
+async createProcurementManifest(
+  requestId: number
+): Promise<any> {
+  const res = await fetch(
+    API_BASE +
+      '/allocations/procurement-manifest/' +
+      requestId,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type':
+          'application/json'
+      }
+    }
+  );
+
+  if (!res.ok) {
+    let message =
+      'Failed to create procurement manifest';
+
+    try {
+      const data =
+        await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(
+                data.detail
+              );
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+},
+  async getPublicFacilities(
+    params?: {
+      region?: string;
+      latitude?: number;
+      longitude?: number;
+      radius_m?: number;
+      facility_type?: string;
+    }
+  ): Promise<PublicFacility[]> {
+    const query = new URLSearchParams();
+
+    if (params?.region) {
+      query.append(
+        'region',
+        params.region
+      );
+    } else {
+      query.append(
+        'latitude',
+        String(params?.latitude ?? 20.0059)
+      );
+
+      query.append(
+        'longitude',
+        String(params?.longitude ?? 73.7897)
+      );
+
+      query.append(
+        'radius_m',
+        String(params?.radius_m ?? 15000)
+      );
+    }
+
+    query.append(
+      'facility_type',
+      params?.facility_type ?? 'all'
+    );
+
+    const res = await fetch(
+      API_BASE +
+        '/public-data/facilities?' +
+        query.toString()
+    );
+
+    if (!res.ok) {
+      throw new Error(
+        'Failed to load public facility data'
+      );
+    }
+
+    const data = await res.json();
+
+    return data.facilities ?? [];
+  },
+async getOfficialWarehouses(
+  district: string = 'Nashik'
+): Promise<OfficialWarehouse[]> {
+  const res = await fetch(
+    API_BASE +
+      '/official-warehouses?district=' +
+      encodeURIComponent(district)
+  );
+
+  if (!res.ok) {
+    throw new Error(
+      'Failed to fetch official warehouses'
+    );
+  }
+
+  const data = await res.json();
+
+  return data.warehouses || [];
+},
   // ============================================================
   // Demo users & auth
   // ============================================================
 
   async getDemoUsers(): Promise<User[]> {
     const res = await fetch(
-      `${API_BASE}/auth/demo-users`
+      API_BASE + '/auth/demo-users'
     );
 
     return res.json();
@@ -34,7 +207,7 @@ const api = {
     text: string
   ): Promise<AIUnderstandingResponse> {
     const res = await fetch(
-      `${API_BASE}/requests/parse-nlp`,
+      API_BASE + '/requests/parse-nlp',
       {
         method: 'POST',
         headers: {
@@ -61,9 +234,8 @@ const api = {
       urgency?: string;
     }
   ): Promise<CommunityRequest[]> {
-
     let url =
-      `${API_BASE}/requests`;
+      API_BASE + '/requests';
 
     const query =
       new URLSearchParams();
@@ -83,7 +255,9 @@ const api = {
     }
 
     if (query.toString()) {
-      url += `?${query.toString()}`;
+      url +=
+        '?' +
+        query.toString();
     }
 
     const res =
@@ -95,9 +269,10 @@ const api = {
   async getRequestById(
     id: number
   ): Promise<CommunityRequest> {
-
     const res = await fetch(
-      `${API_BASE}/requests/${id}`
+      API_BASE +
+        '/requests/' +
+        id
     );
 
     return res.json();
@@ -106,9 +281,8 @@ const api = {
   async createRequest(
     data: any
   ): Promise<CommunityRequest> {
-
     const res = await fetch(
-      `${API_BASE}/requests`,
+      API_BASE + '/requests',
       {
         method: 'POST',
         headers: {
@@ -149,9 +323,11 @@ const api = {
   async getPriorityExplanation(
     requestId: number
   ): Promise<ExplainPriorityResponse> {
-
     const res = await fetch(
-      `${API_BASE}/requests/${requestId}/priority`
+      API_BASE +
+        '/requests/' +
+        requestId +
+        '/priority'
     );
 
     return res.json();
@@ -162,9 +338,11 @@ const api = {
     overrideScore: number,
     reason: string
   ): Promise<ExplainPriorityResponse> {
-
     const res = await fetch(
-      `${API_BASE}/requests/${requestId}/override-priority`,
+      API_BASE +
+        '/requests/' +
+        requestId +
+        '/override-priority',
       {
         method: 'POST',
         headers: {
@@ -189,9 +367,11 @@ const api = {
     notes?: string,
     duplicateOfId?: number
   ): Promise<CommunityRequest> {
-
     const res = await fetch(
-      `${API_BASE}/requests/${requestId}/verify`,
+      API_BASE +
+        '/requests/' +
+        requestId +
+        '/verify',
       {
         method: 'POST',
         headers: {
@@ -217,9 +397,10 @@ const api = {
   async getMatchRecommendation(
     requestId: number
   ): Promise<AIResourceMatchRecommendation> {
-
     const res = await fetch(
-      `${API_BASE}/allocations/recommend/${requestId}`
+      API_BASE +
+        '/allocations/recommend/' +
+        requestId
     );
 
     if (!res.ok) {
@@ -235,6 +416,28 @@ const api = {
     return res.json();
   },
 
+  async getFacilitySupportRecommendation(
+    requestId: number
+  ): Promise<AIFacilitySupportRecommendation> {
+    const res = await fetch(
+      API_BASE +
+        '/allocations/facility-support/' +
+        requestId
+    );
+
+    if (!res.ok) {
+      const text =
+        await res.text();
+
+      throw new Error(
+        text ||
+        'Failed to get facility support recommendation'
+      );
+    }
+
+    return res.json();
+  },
+
   async approveAllocation(
     payload: {
       request_id: number;
@@ -244,9 +447,9 @@ const api = {
       override_notes?: string;
     }
   ): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/allocations/approve`,
+      API_BASE +
+        '/allocations/approve',
       {
         method: 'POST',
         headers: {
@@ -291,9 +494,8 @@ const api = {
   // ============================================================
 
   async getDeliveries(): Promise<any[]> {
-
     const res = await fetch(
-      `${API_BASE}/deliveries`
+      API_BASE + '/deliveries'
     );
 
     if (!res.ok) {
@@ -311,9 +513,10 @@ const api = {
     deliveryId: number,
     allocationId: number
   ): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/deliveries/dispatch/${deliveryId}`,
+      API_BASE +
+        '/deliveries/dispatch/' +
+        deliveryId,
       {
         method: 'POST',
         headers: {
@@ -359,9 +562,11 @@ const api = {
     status: string,
     notes?: string
   ): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/deliveries/${deliveryId}/status`,
+      API_BASE +
+        '/deliveries/' +
+        deliveryId +
+        '/status',
       {
         method: 'PATCH',
         headers: {
@@ -407,18 +612,16 @@ const api = {
   // ============================================================
 
   async getInventory(): Promise<InventoryItem[]> {
-
     const res = await fetch(
-      `${API_BASE}/inventory`
+      API_BASE + '/inventory'
     );
 
     return res.json();
   },
 
   async getInventoryAlerts(): Promise<any[]> {
-
     const res = await fetch(
-      `${API_BASE}/inventory/alerts`
+      API_BASE + '/inventory/alerts'
     );
 
     return res.json();
@@ -431,11 +634,14 @@ const api = {
   async traceRelief(
     identifier: string
   ): Promise<ReliefTraceResponse> {
+    const encodedIdentifier =
+      encodeURIComponent(identifier);
 
     const res = await fetch(
-      `${API_BASE}/donations/${encodeURIComponent(
-        identifier
-      )}/trace`
+      API_BASE +
+        '/donations/' +
+        encodedIdentifier +
+        '/trace'
     );
 
     if (!res.ok) {
@@ -468,9 +674,8 @@ const api = {
   async createDonation(
     data: any
   ): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/donations`,
+      API_BASE + '/donations',
       {
         method: 'POST',
         headers: {
@@ -489,9 +694,8 @@ const api = {
   // ============================================================
 
   async getGisOverview(): Promise<GisOverviewData> {
-
     const res = await fetch(
-      `${API_BASE}/gis/overview`
+      API_BASE + '/gis/overview'
     );
 
     return res.json();
@@ -502,9 +706,9 @@ const api = {
   // ============================================================
 
   async escalateSimulation(): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/simulation/escalate`,
+      API_BASE +
+        '/simulation/escalate',
       {
         method: 'POST'
       }
@@ -520,9 +724,9 @@ const api = {
   },
 
   async resetSimulation(): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/simulation/reset`,
+      API_BASE +
+        '/simulation/reset',
       {
         method: 'POST'
       }
@@ -538,9 +742,9 @@ const api = {
   },
 
   async getSimulationStatus(): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/simulation/status`
+      API_BASE +
+        '/simulation/status'
     );
 
     return res.json();
@@ -551,27 +755,26 @@ const api = {
   // ============================================================
 
   async getAnalytics(): Promise<AnalyticsData> {
-
     const res = await fetch(
-      `${API_BASE}/analytics`
+      API_BASE + '/analytics'
     );
 
     return res.json();
   },
 
   async getForecasts(): Promise<any> {
-
     const res = await fetch(
-      `${API_BASE}/analytics/forecasts`
+      API_BASE +
+        '/analytics/forecasts'
     );
 
     return res.json();
   },
 
   async getShortages(): Promise<any[]> {
-
     const res = await fetch(
-      `${API_BASE}/analytics/shortages`
+      API_BASE +
+        '/analytics/shortages'
     );
 
     return res.json();
@@ -582,9 +785,8 @@ const api = {
   // ============================================================
 
   async getAuditLogs(): Promise<AuditLog[]> {
-
     const res = await fetch(
-      `${API_BASE}/audit`
+      API_BASE + '/audit'
     );
 
     return res.json();
@@ -595,9 +797,9 @@ const api = {
     is_chain_valid: boolean;
     message: string;
   }> {
-
     const res = await fetch(
-      `${API_BASE}/audit/verify-integrity`
+      API_BASE +
+        '/audit/verify-integrity'
     );
 
     return res.json();
