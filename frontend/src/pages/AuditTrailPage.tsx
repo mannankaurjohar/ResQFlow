@@ -101,7 +101,7 @@ export const AuditTrailPage: React.FC = () => {
             <thead className="bg-ivory-100 text-slate uppercase text-[10px] font-bold border-b border-slate/20">
               <tr>
                 <th className="py-2.5 px-3">Block #</th>
-                <th className="py-2.5 px-3">Timestamp</th>
+                <th className="py-2.5 px-3">created_at</th>
                 <th className="py-2.5 px-3">Actor & Role</th>
                 <th className="py-2.5 px-3">Action</th>
                 <th className="py-2.5 px-3">Entity ID</th>
@@ -113,7 +113,9 @@ export const AuditTrailPage: React.FC = () => {
                 <tr key={log.id} className="hover:bg-ivory-50">
                   <td className="py-3 px-3 font-mono font-bold text-navy">#{log.id}</td>
                   <td className="py-3 px-3 text-slate font-mono text-[11px]">
-                    {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                    {log.created_at
+  ? new Date(log.created_at).toLocaleTimeString()
+  : '—'}
                   </td>
                   <td className="py-3 px-3">
                     <div className="font-semibold text-navy">{log.actor_name}</div>
@@ -134,3 +136,4 @@ export const AuditTrailPage: React.FC = () => {
     </div>
   );
 };
+

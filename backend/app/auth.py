@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import User, UserRole, AuditLog
+from app.models import IST, User, UserRole, AuditLog
 from app.schemas import TokenData
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
@@ -95,7 +95,7 @@ def log_audit_event(
         previous_state=previous_state,
         new_state=new_state,
         reason=reason,
-        timestamp=now,
+        created_at=datetime.datetime.now(IST),
         prev_hash=prev_hash,
         curr_hash=curr_hash
     )

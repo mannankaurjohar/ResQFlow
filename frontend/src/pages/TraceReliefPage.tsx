@@ -10,30 +10,54 @@ import { StatusBadge } from '../components/StatusBadge';
 
 export const TraceReliefPage: React.FC = () => {
   const { traceIdInput, setTraceIdInput } = useApp();
-  const [currentId, setCurrentId] = useState(traceIdInput || 'RELIEF-2026-00482');
+  const [currentId, setCurrentId] = useState(traceIdInput || '');
   const [traceData, setTraceData] = useState<ReliefTraceResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTrace = (id: string) => {
-    if (!id.trim()) return;
-    setLoading(true);
-    setError(null);
-    api.traceRelief(id.trim())
-      .then(data => setTraceData(data))
-      .catch(err => {
-        setError(`No tracking record found for '${id}'. Try 'RELIEF-2026-00482' or 'D-10284'.`);
-        setTraceData(null);
-      })
-      .finally(() => setLoading(false));
-  };
+  if (!id.trim()) return;
 
-  useEffect(() => {
-    if (traceIdInput) {
-      setCurrentId(traceIdInput);
-      fetchTrace(traceIdInput);
-    }
-  }, [traceIdInput]);
+  setLoading(true);
+  setError(null);
+
+  api.traceRelief(id.trim())
+    .then(data => {
+      console.log('TRACE DATA:', data);
+console.log(
+  'TIMELINE DETAILS:',
+  JSON.stringify(
+    data.timeline.map((step: any, index: number) => ({
+      index,
+      label: step.label,
+      status: step.status,
+      created_at: step.created_at
+    })),
+    null,
+    2
+  )
+);
+      setTraceData(data);
+    })
+    .catch(err => {
+      console.error('Trace Relief error:', err);
+
+      setError(
+        `No relief tracking record found for '${id}'.`
+      );
+
+      setTraceData(null);
+    })
+    .finally(() => {
+      setLoading(false);
+    });
+};
+useEffect(() => {
+  if (traceIdInput) {
+    setCurrentId(traceIdInput);
+    fetchTrace(traceIdInput);
+  } 
+}, [traceIdInput]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +73,7 @@ export const TraceReliefPage: React.FC = () => {
           Transparent Relief Tracking
         </h1>
         <p className="text-xs sm:text-sm text-slate mt-1">
-          Every contribution and allocation is publicly traceable from donor to verified community handover.
+          Track relief requests, allocations, deliveries, and verified community handovers.
         </p>
       </div>
 
@@ -74,22 +98,20 @@ export const TraceReliefPage: React.FC = () => {
           </button>
         </form>
 
-        <div className="mt-2 text-[11px] text-slate flex items-center gap-2">
-          <span>Demo Signature Packages:</span>
-          <button
-            onClick={() => { setCurrentId('RELIEF-2026-00482'); fetchTrace('RELIEF-2026-00482'); }}
-            className="text-terracotta underline font-mono"
-          >
-            RELIEF-2026-00482
-          </button>
-          <span>&bull;</span>
-          <button
-            onClick={() => { setCurrentId('D-10284'); fetchTrace('D-10284'); }}
-            className="text-terracotta underline font-mono"
-          >
-            D-10284 (Anita & Vikram)
-          </button>
-        </div>
+<div className="mt-2 text-[11px] text-slate flex items-center gap-2">
+  <span>Tracking record:</span>
+
+  <button
+    type="button"
+    onClick={() => {
+      setCurrentId('');
+      fetchTrace('');
+    }}
+    className="text-terracotta underline font-mono"
+  >
+    Clear Search
+  </button>
+</div>
       </div>
 
       {loading && (
@@ -112,7 +134,7 @@ export const TraceReliefPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <div className="text-[11px] font-semibold text-slate-light uppercase tracking-wider">
-                  Verified Relief Manifest
+                  Relief Tracking Record
                 </div>
                 <div className="text-2xl sm:text-3xl font-extrabold text-ivory font-mono mt-0.5">
                   {traceData.relief_id}
@@ -151,8 +173,17 @@ export const TraceReliefPage: React.FC = () => {
 
             <div className="relative pl-6 sm:pl-8 space-y-8 before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate/20">
               {traceData.timeline.map((step, idx) => {
-                const isComp = step.status === 'COMPLETED';
-                const isCurr = step.status === 'CURRENT';
+  const isComp = step.status === 'COMPLETED';
+
+  const firstIncompleteIndex =
+    traceData.timeline.findIndex(
+      timelineStep =>
+        timelineStep.status !== 'COMPLETED'
+    );
+
+  const isCurr =
+    idx === firstIncompleteIndex &&
+    !isComp;
 
                 return (
                   <div key={idx} className="relative text-xs">
@@ -170,7 +201,7 @@ export const TraceReliefPage: React.FC = () => {
                         <span>{step.label}</span>
                         {isCurr && <span className="text-[10px] bg-terracotta text-white px-2 py-0.2 rounded font-semibold">ACTIVE STAGE</span>}
                       </div>
-                      <div className="text-slate font-mono text-[11px]">{step.timestamp || 'Pending execution'}</div>
+                      <div className="text-slate font-mono text-[11px]">{step.created_at || 'Pending execution'}</div>
                     </div>
 
                     <div className="text-slate-dark mt-1 text-xs">

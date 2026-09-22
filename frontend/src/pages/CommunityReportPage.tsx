@@ -1,37 +1,44 @@
 import React, { useState } from 'react';
+
 import { useApp } from '../context/AppContext';
+
 import {
   AIUnderstandingResponse,
   ExtractedItem
 } from '../types';
+
 import api from '../services/api';
+
 import {
   Sparkles,
   Send,
   CheckCircle2,
   Edit2
 } from 'lucide-react';
+
 import { LocationPicker } from '../components/LocationPicker';
 
+
 export const CommunityReportPage: React.FC = () => {
+
   const {
     showNotification,
     setActiveTab
   } = useApp();
 
+
   // ============================================================
   // NATURAL LANGUAGE INPUT
   // ============================================================
 
-  const [nlText, setNlText] = useState(
-    'Around 350 people are stranded in Village A. We urgently need drinking water, food and medicines. There are 40 elderly people and 25 children.'
-  );
+  const [nlText, setNlText] = useState('');
 
   const [parsing, setParsing] =
     useState(false);
 
   const [aiUnderstanding, setAiUnderstanding] =
     useState<AIUnderstandingResponse | null>(null);
+
 
   // ============================================================
   // FORM DATA
@@ -40,8 +47,6 @@ export const CommunityReportPage: React.FC = () => {
   const [locationName, setLocationName] =
     useState('');
 
-  // Coordinates are internal application data.
-  // The user never types these manually.
   const [locationLatitude, setLocationLatitude] =
     useState<number | null>(null);
 
@@ -49,47 +54,29 @@ export const CommunityReportPage: React.FC = () => {
     useState<number | null>(null);
 
   const [affectedPeople, setAffectedPeople] =
-    useState(350);
+    useState<number | ''>('');
 
   const [affectedHouseholds, setAffectedHouseholds] =
-    useState(85);
+    useState<number | ''>('');
 
   const [vulnerableElderly, setVulnerableElderly] =
-    useState(40);
+    useState<number | ''>('');
 
   const [vulnerableChildren, setVulnerableChildren] =
-    useState(25);
+    useState<number | ''>('');
 
   const [urgency, setUrgency] =
-    useState('CRITICAL');
+    useState('');
 
   const [reporterName, setReporterName] =
-    useState('Sarpanch Ramesh');
+    useState('');
 
   const [reporterPhone, setReporterPhone] =
-    useState('+91 94812 33491');
+    useState('');
 
   const [items, setItems] =
-    useState<ExtractedItem[]>([
-      {
-        category: 'Drinking Water',
-        item_name: 'Clean Drinking Water',
-        quantity: 2000,
-        unit: 'Liters'
-      },
-      {
-        category: 'Food',
-        item_name: 'Ready-to-Eat Food Packets',
-        quantity: 700,
-        unit: 'Packets'
-      },
-      {
-        category: 'Medicines',
-        item_name: 'Emergency Medicine Kits',
-        quantity: 35,
-        unit: 'Kits'
-      }
-    ]);
+    useState<ExtractedItem[]>([]);
+
 
   // ============================================================
   // SUBMISSION STATE
@@ -101,77 +88,101 @@ export const CommunityReportPage: React.FC = () => {
   const [submitting, setSubmitting] =
     useState(false);
 
+
   // ============================================================
   // AI PARSING
   // ============================================================
 
   const handleParseNLP = async () => {
+
     if (!nlText.trim()) {
+
       showNotification(
         'Please describe the situation first.',
         'error'
       );
+
       return;
     }
 
+
     setParsing(true);
 
+
     try {
+
       const parsed =
         await api.parseNLP(nlText);
 
+
       setAiUnderstanding(parsed);
 
+
       // AI can provide a textual location.
+
       setLocationName(
         parsed.extracted_location || ''
       );
 
-      // If the AI was able to determine coordinates,
-      // use them automatically.
+
+      // If AI determines coordinates, use them.
+
       if (
         parsed.latitude !== undefined &&
         parsed.latitude !== null
       ) {
+
         setLocationLatitude(
           parsed.latitude
         );
       }
 
+
       if (
         parsed.longitude !== undefined &&
         parsed.longitude !== null
       ) {
+
         setLocationLongitude(
           parsed.longitude
         );
       }
 
+
       setAffectedPeople(
         parsed.affected_people
       );
+
 
       setAffectedHouseholds(
         parsed.affected_households
       );
 
+
       setVulnerableElderly(
         parsed.vulnerable_elderly
       );
+
 
       setVulnerableChildren(
         parsed.vulnerable_children
       );
 
+
       setUrgency(
         parsed.urgency
       );
 
-      if (parsed.items.length > 0) {
-        setItems(
-          parsed.items
-        );
-      }
+
+      /*
+       * IMPORTANT:
+       * AI-extracted supplies are intentionally NOT
+       * added to the user's requested supply list.
+       *
+       * The user must explicitly select the supplies
+       * they require from the predefined options below.
+       */
+
 
       showNotification(
         'AI parsed your description into structured relief requirements.',
@@ -179,10 +190,12 @@ export const CommunityReportPage: React.FC = () => {
       );
 
     } catch (error) {
+
       console.error(
         'AI parsing failed:',
         error
       );
+
 
       showNotification(
         'Failed to parse text with AI.',
@@ -190,9 +203,99 @@ export const CommunityReportPage: React.FC = () => {
       );
 
     } finally {
+
       setParsing(false);
+
     }
+
   };
+
+
+  // ============================================================
+  // ADD PREDEFINED SUPPLY
+  // ============================================================
+
+  const addPredefinedSupply = (
+    category: string,
+    item_name: string,
+    unit: string
+  ) => {
+
+    const alreadyExists =
+      items.some(
+        item =>
+          item.item_name.toLowerCase() ===
+          item_name.toLowerCase()
+      );
+
+
+    if (alreadyExists) {
+
+      showNotification(
+        `${item_name} is already selected.`,
+        'error'
+      );
+
+      return;
+    }
+
+
+    setItems([
+      ...items,
+      {
+        category,
+        item_name,
+        quantity: 1,
+        unit
+      }
+    ]);
+
+  };
+
+
+  // ============================================================
+  // REMOVE SUPPLY
+  // ============================================================
+
+  const removeSupply = (
+    index: number
+  ) => {
+
+    setItems(
+      items.filter(
+        (_, i) => i !== index
+      )
+    );
+
+  };
+
+
+  // ============================================================
+  // UPDATE SUPPLY QUANTITY
+  // ============================================================
+
+  const updateSupplyQuantity = (
+    index: number,
+    value: string
+  ) => {
+
+    const updated =
+      [...items];
+
+
+    updated[index] = {
+      ...updated[index],
+      quantity:
+        value === ''
+          ? 0
+          : Number(value)
+    };
+
+
+    setItems(updated);
+
+  };
+
 
   // ============================================================
   // SUBMIT REQUEST
@@ -201,15 +304,20 @@ export const CommunityReportPage: React.FC = () => {
   const handleSubmit = async (
     e: React.FormEvent
   ) => {
+
     e.preventDefault();
 
-    // Location is mandatory.
-    // The user selects it through the map/search picker.
+
+    // ----------------------------------------------------------
+    // LOCATION
+    // ----------------------------------------------------------
+
     if (
       locationLatitude === null ||
       locationLongitude === null ||
       !locationName.trim()
     ) {
+
       showNotification(
         'Please select the affected location on the map before submitting.',
         'error'
@@ -218,9 +326,16 @@ export const CommunityReportPage: React.FC = () => {
       return;
     }
 
+
+    // ----------------------------------------------------------
+    // AFFECTED PEOPLE
+    // ----------------------------------------------------------
+
     if (
+      affectedPeople === '' ||
       affectedPeople < 1
     ) {
+
       showNotification(
         'Affected people must be at least 1.',
         'error'
@@ -229,26 +344,155 @@ export const CommunityReportPage: React.FC = () => {
       return;
     }
 
+
+    // ----------------------------------------------------------
+    // HOUSEHOLDS
+    // ----------------------------------------------------------
+
     if (
-      items.length === 0
+      affectedHouseholds === '' ||
+      affectedHouseholds < 1
     ) {
+
       showNotification(
-        'Please specify at least one required relief item.',
+        'Affected households must be at least 1.',
         'error'
       );
 
       return;
     }
 
+
+    // ----------------------------------------------------------
+    // ELDERLY
+    // ----------------------------------------------------------
+
+    if (
+      vulnerableElderly === '' ||
+      vulnerableElderly < 0
+    ) {
+
+      showNotification(
+        'Please enter the number of elderly individuals.',
+        'error'
+      );
+
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // CHILDREN
+    // ----------------------------------------------------------
+
+    if (
+      vulnerableChildren === '' ||
+      vulnerableChildren < 0
+    ) {
+
+      showNotification(
+        'Please enter the number of children and infants.',
+        'error'
+      );
+
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // URGENCY
+    // ----------------------------------------------------------
+
+    if (!urgency) {
+
+      showNotification(
+        'Please select an urgency level.',
+        'error'
+      );
+
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // REPORTER NAME
+    // ----------------------------------------------------------
+
+    if (!reporterName.trim()) {
+
+      showNotification(
+        'Please enter the reporter or coordinator name.',
+        'error'
+      );
+
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // PHONE
+    // ----------------------------------------------------------
+
+    if (!reporterPhone.trim()) {
+
+      showNotification(
+        'Please enter a contact phone number.',
+        'error'
+      );
+
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // REQUESTED SUPPLIES
+    // ----------------------------------------------------------
+
+    if (items.length === 0) {
+
+      showNotification(
+        'Please select at least one required supply.',
+        'error'
+      );
+
+      return;
+    }
+
+
+    // ----------------------------------------------------------
+    // VALIDATE SUPPLY QUANTITIES
+    // ----------------------------------------------------------
+
+    const invalidSupply =
+      items.some(
+        item =>
+          !item.quantity ||
+          Number(item.quantity) < 1
+      );
+
+
+    if (invalidSupply) {
+
+      showNotification(
+        'Please enter a valid quantity for every requested supply.',
+        'error'
+      );
+
+      return;
+    }
+
+
     setSubmitting(true);
 
+
     try {
+
       const res =
         await api.createRequest({
+
           location_name:
             locationName.trim(),
 
-          // Automatically captured from the map.
           latitude:
             locationLatitude,
 
@@ -281,6 +525,7 @@ export const CommunityReportPage: React.FC = () => {
 
           items:
             items.map(item => ({
+
               category:
                 item.category,
 
@@ -294,45 +539,60 @@ export const CommunityReportPage: React.FC = () => {
 
               unit:
                 item.unit
+
             }))
+
         });
+
 
       setSubmittedCode(
         res.tracking_code
       );
+
 
       showNotification(
         `Request ${res.tracking_code} submitted! Prioritized with score ${res.priority_score}/100.`,
         'success'
       );
 
+
     } catch (error) {
+
       console.error(
         'Relief request submission failed:',
         error
       );
+
 
       const message =
         error instanceof Error
           ? error.message
           : 'Failed to submit relief request.';
 
+
       showNotification(
         message,
         'error'
       );
 
+
     } finally {
+
       setSubmitting(false);
+
     }
+
   };
+
 
   // ============================================================
   // SUCCESS SCREEN
   // ============================================================
 
   if (submittedCode) {
+
     return (
+
       <div className="
         max-w-2xl
         mx-auto
@@ -362,11 +622,16 @@ export const CommunityReportPage: React.FC = () => {
             mx-auto
             mb-4
           ">
-            <CheckCircle2 className="
-              w-10
-              h-10
-            " />
+
+            <CheckCircle2
+              className="
+                w-10
+                h-10
+              "
+            />
+
           </div>
+
 
           <h2 className="
             text-2xl
@@ -375,6 +640,7 @@ export const CommunityReportPage: React.FC = () => {
           ">
             Relief Request Logged Successfully
           </h2>
+
 
           <p className="
             text-slate
@@ -385,6 +651,7 @@ export const CommunityReportPage: React.FC = () => {
             routed to the emergency operations
             workflow and nearby relief resources.
           </p>
+
 
           <div className="
             my-6
@@ -406,6 +673,7 @@ export const CommunityReportPage: React.FC = () => {
               Your Request Tracking Code
             </div>
 
+
             <div className="
               text-3xl
               font-mono
@@ -418,6 +686,7 @@ export const CommunityReportPage: React.FC = () => {
 
           </div>
 
+
           <div className="
             text-xs
             text-slate
@@ -428,6 +697,7 @@ export const CommunityReportPage: React.FC = () => {
             with available relief resources.
           </div>
 
+
           <div className="
             flex
             justify-center
@@ -437,13 +707,37 @@ export const CommunityReportPage: React.FC = () => {
             <button
               type="button"
               onClick={() => {
+
                 setSubmittedCode(null);
 
+                // Reset entire form
+
+                setNlText('');
+
                 setLocationName('');
+
                 setLocationLatitude(null);
+
                 setLocationLongitude(null);
 
+                setAffectedPeople('');
+
+                setAffectedHouseholds('');
+
+                setVulnerableElderly('');
+
+                setVulnerableChildren('');
+
+                setUrgency('');
+
+                setReporterName('');
+
+                setReporterPhone('');
+
+                setItems([]);
+
                 setAiUnderstanding(null);
+
               }}
               className="
                 bg-ivory
@@ -460,6 +754,7 @@ export const CommunityReportPage: React.FC = () => {
             >
               Report Another Need
             </button>
+
 
             <button
               type="button"
@@ -485,14 +780,18 @@ export const CommunityReportPage: React.FC = () => {
         </div>
 
       </div>
+
     );
+
   }
+
 
   // ============================================================
   // MAIN REPORT PAGE
   // ============================================================
 
   return (
+
     <div className="
       max-w-4xl
       mx-auto
@@ -501,6 +800,7 @@ export const CommunityReportPage: React.FC = () => {
       py-6
       space-y-8
     ">
+
 
       {/* ======================================================
           PAGE TITLE
@@ -518,6 +818,7 @@ export const CommunityReportPage: React.FC = () => {
           Report a Flood Relief Need
         </h1>
 
+
         <p className="
           text-xs
           sm:text-sm
@@ -531,6 +832,7 @@ export const CommunityReportPage: React.FC = () => {
         </p>
 
       </div>
+
 
       {/* ======================================================
           STEP 1: NATURAL LANGUAGE DESCRIPTION
@@ -561,11 +863,13 @@ export const CommunityReportPage: React.FC = () => {
             gap-1.5
           ">
 
-            <Sparkles className="
-              w-4
-              h-4
-              text-terracotta
-            " />
+            <Sparkles
+              className="
+                w-4
+                h-4
+                text-terracotta
+              "
+            />
 
             <span>
               Describe the Situation Naturally
@@ -573,15 +877,17 @@ export const CommunityReportPage: React.FC = () => {
 
           </label>
 
+
           <span className="
             text-xs
             text-slate
           ">
             AI extracts location,
-            population and supplies
+            population and urgency
           </span>
 
         </div>
+
 
         <textarea
           rows={3}
@@ -611,6 +917,7 @@ export const CommunityReportPage: React.FC = () => {
           "
         />
 
+
         <div className="
           mt-3
           flex
@@ -626,9 +933,9 @@ export const CommunityReportPage: React.FC = () => {
           ">
             Mention the affected area,
             number of people, vulnerable
-            groups and urgently required
-            supplies.
+            groups and situation details.
           </div>
+
 
           <button
             type="button"
@@ -655,11 +962,14 @@ export const CommunityReportPage: React.FC = () => {
             "
           >
 
-            <Sparkles className="
-              w-3.5
-              h-3.5
-              text-terracotta
-            " />
+            <Sparkles
+              className="
+                w-3.5
+                h-3.5
+                text-terracotta
+              "
+            />
+
 
             <span>
               {
@@ -673,11 +983,13 @@ export const CommunityReportPage: React.FC = () => {
 
         </div>
 
+
         {/* ==================================================
             AI UNDERSTANDING
         =================================================== */}
 
         {aiUnderstanding && (
+
           <div className="
             mt-4
             p-4
@@ -706,6 +1018,7 @@ export const CommunityReportPage: React.FC = () => {
                 AI UNDERSTANDING
               </span>
 
+
               <span className="
                 text-slate
                 font-mono
@@ -721,6 +1034,7 @@ export const CommunityReportPage: React.FC = () => {
               </span>
 
             </div>
+
 
             <div className="
               grid
@@ -741,6 +1055,7 @@ export const CommunityReportPage: React.FC = () => {
                 </b>
               </div>
 
+
               <div>
                 Affected:
                 {' '}
@@ -752,6 +1067,7 @@ export const CommunityReportPage: React.FC = () => {
                 </b>
               </div>
 
+
               <div>
                 Vulnerable:
                 {' '}
@@ -762,6 +1078,7 @@ export const CommunityReportPage: React.FC = () => {
                   } people
                 </b>
               </div>
+
 
               <div>
                 Urgency:
@@ -777,36 +1094,12 @@ export const CommunityReportPage: React.FC = () => {
 
             </div>
 
-            <div className="
-              mt-2
-              text-[11px]
-              text-slate
-              border-t
-              border-terracotta/20
-              pt-1.5
-            ">
-
-              <b>
-                Identified Supplies:
-              </b>
-
-              {' '}
-
-              {
-                aiUnderstanding.items
-                  .map(
-                    item =>
-                      `${item.quantity} ${item.unit} ${item.category}`
-                  )
-                  .join(', ')
-              }
-
-            </div>
-
           </div>
+
         )}
 
       </div>
+
 
       {/* ======================================================
           STEP 2: CONFIRM & REFINE
@@ -837,17 +1130,21 @@ export const CommunityReportPage: React.FC = () => {
           gap-2
         ">
 
-          <Edit2 className="
-            w-4
-            h-4
-            text-terracotta
-          " />
+          <Edit2
+            className="
+              w-4
+              h-4
+              text-terracotta
+            "
+          />
+
 
           <span>
             Confirm & Refine Request Details
           </span>
 
         </h3>
+
 
         <div className="
           grid
@@ -856,6 +1153,7 @@ export const CommunityReportPage: React.FC = () => {
           gap-4
           text-xs
         ">
+
 
           {/* ==================================================
               LOCATION PICKER
@@ -866,6 +1164,7 @@ export const CommunityReportPage: React.FC = () => {
           ">
 
             <LocationPicker
+
               locationName={
                 locationName
               }
@@ -883,6 +1182,7 @@ export const CommunityReportPage: React.FC = () => {
                 latitude,
                 longitude
               ) => {
+
                 setLocationName(
                   name
                 );
@@ -894,10 +1194,13 @@ export const CommunityReportPage: React.FC = () => {
                 setLocationLongitude(
                   longitude
                 );
+
               }}
+
             />
 
           </div>
+
 
           {/* ==================================================
               URGENCY
@@ -913,6 +1216,7 @@ export const CommunityReportPage: React.FC = () => {
             ">
               Assessed Urgency Level
             </label>
+
 
             <select
               value={urgency}
@@ -930,29 +1234,35 @@ export const CommunityReportPage: React.FC = () => {
                 px-3
                 py-2
                 text-navy
-                font-semibold
+                focus:outline-none
+                focus:border-terracotta
               "
             >
 
-              <option value="CRITICAL">
-                CRITICAL (Immediate Life Threat)
-              </option>
-
-              <option value="HIGH">
-                HIGH (Urgent Assistance Required)
-              </option>
-
-              <option value="MEDIUM">
-                MEDIUM (Stable / Need Support)
+              <option value="">
+                Select urgency level
               </option>
 
               <option value="LOW">
-                LOW (Monitoring / Non-critical)
+                Low
+              </option>
+
+              <option value="MEDIUM">
+                Medium
+              </option>
+
+              <option value="HIGH">
+                High
+              </option>
+
+              <option value="CRITICAL">
+                Critical
               </option>
 
             </select>
 
           </div>
+
 
           {/* ==================================================
               AFFECTED PEOPLE
@@ -969,6 +1279,7 @@ export const CommunityReportPage: React.FC = () => {
               Total Stranded / Affected People
             </label>
 
+
             <input
               type="number"
               min="1"
@@ -977,9 +1288,11 @@ export const CommunityReportPage: React.FC = () => {
               }
               onChange={e =>
                 setAffectedPeople(
-                  Number(
-                    e.target.value
-                  )
+                  e.target.value === ''
+                    ? ''
+                    : Number(
+                        e.target.value
+                      )
                 )
               }
               className="
@@ -995,6 +1308,7 @@ export const CommunityReportPage: React.FC = () => {
             />
 
           </div>
+
 
           {/* ==================================================
               HOUSEHOLDS
@@ -1011,6 +1325,7 @@ export const CommunityReportPage: React.FC = () => {
               Households Affected
             </label>
 
+
             <input
               type="number"
               min="1"
@@ -1019,9 +1334,11 @@ export const CommunityReportPage: React.FC = () => {
               }
               onChange={e =>
                 setAffectedHouseholds(
-                  Number(
-                    e.target.value
-                  )
+                  e.target.value === ''
+                    ? ''
+                    : Number(
+                        e.target.value
+                      )
                 )
               }
               className="
@@ -1037,6 +1354,7 @@ export const CommunityReportPage: React.FC = () => {
             />
 
           </div>
+
 
           {/* ==================================================
               ELDERLY
@@ -1053,6 +1371,7 @@ export const CommunityReportPage: React.FC = () => {
               Elderly Individuals
             </label>
 
+
             <input
               type="number"
               min="0"
@@ -1061,9 +1380,11 @@ export const CommunityReportPage: React.FC = () => {
               }
               onChange={e =>
                 setVulnerableElderly(
-                  Number(
-                    e.target.value
-                  )
+                  e.target.value === ''
+                    ? ''
+                    : Number(
+                        e.target.value
+                      )
                 )
               }
               className="
@@ -1079,6 +1400,7 @@ export const CommunityReportPage: React.FC = () => {
             />
 
           </div>
+
 
           {/* ==================================================
               CHILDREN
@@ -1095,6 +1417,7 @@ export const CommunityReportPage: React.FC = () => {
               Children & Infants
             </label>
 
+
             <input
               type="number"
               min="0"
@@ -1103,9 +1426,11 @@ export const CommunityReportPage: React.FC = () => {
               }
               onChange={e =>
                 setVulnerableChildren(
-                  Number(
-                    e.target.value
-                  )
+                  e.target.value === ''
+                    ? ''
+                    : Number(
+                        e.target.value
+                      )
                 )
               }
               className="
@@ -1122,6 +1447,7 @@ export const CommunityReportPage: React.FC = () => {
 
           </div>
 
+
           {/* ==================================================
               REPORTER NAME
           =================================================== */}
@@ -1136,6 +1462,7 @@ export const CommunityReportPage: React.FC = () => {
             ">
               Reporter / Coordinator Name
             </label>
+
 
             <input
               type="text"
@@ -1161,6 +1488,7 @@ export const CommunityReportPage: React.FC = () => {
 
           </div>
 
+
           {/* ==================================================
               PHONE
           =================================================== */}
@@ -1175,6 +1503,7 @@ export const CommunityReportPage: React.FC = () => {
             ">
               Contact Phone Number
             </label>
+
 
             <input
               type="text"
@@ -1202,138 +1531,326 @@ export const CommunityReportPage: React.FC = () => {
 
         </div>
 
+
         {/* ======================================================
             REQUESTED SUPPLIES
         ======================================================= */}
 
         <div>
 
-          <label className="
-            block
-            font-bold
-            text-navy
-            text-xs
-            mb-2
-          ">
-            Requested Supplies
-          </label>
-
           <div className="
-            space-y-2
+            flex
+            items-center
+            justify-between
+            mb-3
           ">
 
-            {items.map(
-              (item, index) => (
-                <div
-                  key={index}
-                  className="
-                    flex
-                    items-center
-                    gap-2
-                    text-xs
-                  "
-                >
+            <label className="
+              block
+              font-bold
+              text-navy
+              text-xs
+            ">
+              Requested Supplies
+            </label>
 
-                  <input
-                    type="text"
-                    value={
-                      item.category
-                    }
-                    readOnly
-                    className="
-                      w-1/3
-                      bg-ivory-100
-                      border
-                      border-slate/20
-                      rounded
-                      px-2.5
-                      py-1.5
-                      font-medium
-                      text-navy
-                    "
-                  />
 
-                  <input
-                    type="text"
-                    value={
-                      item.item_name
-                    }
-                    onChange={e => {
-                      const updated =
-                        [...items];
-
-                      updated[index] = {
-                        ...updated[index],
-                        item_name:
-                          e.target.value
-                      };
-
-                      setItems(
-                        updated
-                      );
-                    }}
-                    className="
-                      flex-1
-                      bg-white
-                      border
-                      border-slate/30
-                      rounded
-                      px-2.5
-                      py-1.5
-                      text-navy
-                    "
-                  />
-
-                  <input
-                    type="number"
-                    min="0"
-                    value={
-                      item.quantity
-                    }
-                    onChange={e => {
-                      const updated =
-                        [...items];
-
-                      updated[index] = {
-                        ...updated[index],
-                        quantity:
-                          Number(
-                            e.target.value
-                          )
-                      };
-
-                      setItems(
-                        updated
-                      );
-                    }}
-                    className="
-                      w-24
-                      bg-white
-                      border
-                      border-slate/30
-                      rounded
-                      px-2.5
-                      py-1.5
-                      text-navy
-                      font-bold
-                    "
-                  />
-
-                  <span className="
-                    w-16
-                    text-slate
-                    font-medium
-                  ">
-                    {item.unit}
-                  </span>
-
-                </div>
-              )
-            )}
+            <span className="
+              text-[10px]
+              text-slate
+            ">
+              Select required supplies
+            </span>
 
           </div>
 
+
+          {/* SUPPLY OPTIONS */}
+
+          <div className="
+            grid
+            grid-cols-1
+            sm:grid-cols-3
+            gap-3
+          ">
+
+
+            {/* ==================================================
+                CLEAN DRINKING WATER
+            =================================================== */}
+
+            <button
+              type="button"
+              onClick={() =>
+                addPredefinedSupply(
+                  'Water',
+                  'Clean Drinking Water',
+                  'litres'
+                )
+              }
+              className="
+                bg-white
+                border
+                border-slate/30
+                hover:border-terracotta
+                hover:bg-terracotta-50
+                rounded-lg
+                p-4
+                text-left
+                transition-colors
+              "
+            >
+
+              <div className="
+                text-2xl
+                mb-2
+              ">
+                💧
+              </div>
+
+
+              <div className="
+                text-sm
+                font-bold
+                text-navy
+              ">
+                Clean Drinking Water
+              </div>
+
+
+              <div className="
+                text-[10px]
+                text-slate
+                mt-1
+              ">
+                Safe drinking water
+              </div>
+
+            </button>
+
+
+            {/* ==================================================
+                READY TO EAT FOOD
+            =================================================== */}
+
+            <button
+              type="button"
+              onClick={() =>
+                addPredefinedSupply(
+                  'Food',
+                  'Ready-to-Eat Food Packets',
+                  'packets'
+                )
+              }
+              className="
+                bg-white
+                border
+                border-slate/30
+                hover:border-terracotta
+                hover:bg-terracotta-50
+                rounded-lg
+                p-4
+                text-left
+                transition-colors
+              "
+            >
+
+              <div className="
+                text-2xl
+                mb-2
+              ">
+                🍱
+              </div>
+
+
+              <div className="
+                text-sm
+                font-bold
+                text-navy
+              ">
+                Ready-to-Eat Food Packets
+              </div>
+
+
+              <div className="
+                text-[10px]
+                text-slate
+                mt-1
+              ">
+                Ready-to-eat emergency meals
+              </div>
+
+            </button>
+
+
+            {/* ==================================================
+                EMERGENCY MEDICINE KITS
+            =================================================== */}
+
+            <button
+              type="button"
+              onClick={() =>
+                addPredefinedSupply(
+                  'Medical',
+                  'Emergency Medicine Kits',
+                  'kits'
+                )
+              }
+              className="
+                bg-white
+                border
+                border-slate/30
+                hover:border-terracotta
+                hover:bg-terracotta-50
+                rounded-lg
+                p-4
+                text-left
+                transition-colors
+              "
+            >
+
+              <div className="
+                text-2xl
+                mb-2
+              ">
+                🏥
+              </div>
+
+
+              <div className="
+                text-sm
+                font-bold
+                text-navy
+              ">
+                Emergency Medicine Kits
+              </div>
+
+
+              <div className="
+                text-[10px]
+                text-slate
+                mt-1
+              ">
+                Basic emergency medical supplies
+              </div>
+
+            </button>
+
+          </div>
+
+
+          {/* ==================================================
+              SELECTED SUPPLIES
+          =================================================== */}
+
+          {items.length > 0 && (
+
+            <div className="
+              mt-4
+              space-y-2
+            ">
+
+              <div className="
+                text-[10px]
+                uppercase
+                tracking-wider
+                font-bold
+                text-slate
+                mb-2
+              ">
+                Selected Supplies
+              </div>
+
+
+              {items.map(
+                (item, index) => (
+
+                  <div
+                    key={index}
+                    className="
+                      flex
+                      items-center
+                      gap-2
+                      text-xs
+                      bg-white
+                      border
+                      border-slate/20
+                      rounded-lg
+                      p-2
+                    "
+                  >
+
+                    <div className="
+                      flex-1
+                      font-semibold
+                      text-navy
+                    ">
+                      {item.item_name}
+                    </div>
+
+
+                    <input
+                      type="number"
+                      min="1"
+                      value={
+                        item.quantity
+                      }
+                      onChange={e =>
+                        updateSupplyQuantity(
+                          index,
+                          e.target.value
+                        )
+                      }
+                      className="
+                        w-24
+                        bg-white
+                        border
+                        border-slate/30
+                        rounded
+                        px-2.5
+                        py-1.5
+                        text-navy
+                        font-bold
+                      "
+                    />
+
+
+                    <span className="
+                      w-16
+                      text-slate
+                      font-medium
+                    ">
+                      {item.unit}
+                    </span>
+
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeSupply(index)
+                      }
+                      className="
+                        text-red-600
+                        hover:text-red-800
+                        font-bold
+                        px-2
+                      "
+                      title="Remove supply"
+                    >
+                      ×
+                    </button>
+
+                  </div>
+
+                )
+              )}
+
+            </div>
+
+          )}
+
         </div>
+
 
         {/* ======================================================
             SUBMIT
@@ -1371,10 +1888,13 @@ export const CommunityReportPage: React.FC = () => {
             "
           >
 
-            <Send className="
-              w-4
-              h-4
-            " />
+            <Send
+              className="
+                w-4
+                h-4
+              "
+            />
+
 
             <span>
               {
@@ -1391,5 +1911,7 @@ export const CommunityReportPage: React.FC = () => {
       </form>
 
     </div>
+
   );
+
 };

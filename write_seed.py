@@ -360,7 +360,7 @@ def seed_all_data(db: Session, force_reset: bool = False):
             previous_state=pstate,
             new_state=nstate,
             reason=reason,
-            timestamp=log_time,
+            created_at=log_time,
             prev_hash=prev_hash,
             curr_hash=curr_hash
         )

@@ -1,7 +1,10 @@
-import datetime
+
 import json
 import httpx
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
+IST = ZoneInfo("Asia/Kolkata")
 from fastapi import (
     APIRouter,
     Depends,
@@ -455,7 +458,7 @@ def create_procurement_manifest(
 
 @router.post(
     "/approve",
-    response_model=AllocationResponse
+    response_model=List[AllocationResponse]
 )
 def approve_allocation(
     payload: ApproveAllocationRequest,
@@ -464,6 +467,10 @@ def approve_allocation(
         get_current_user
     )
 ):
+    # ========================================================
+    # FIND REQUEST
+    # ========================================================
+
     req = (
         db.query(CommunityRequest)
         .filter(
@@ -479,387 +486,452 @@ def approve_allocation(
             detail="Request not found"
         )
 
-    warehouse = (
-        db.query(Warehouse)
-        .filter(
-            Warehouse.id ==
-            payload.warehouse_id
-        )
-        .first()
-    )
-
-    if not warehouse:
-        raise HTTPException(
-            status_code=404,
-            detail="Warehouse not found"
-        )
-
-    # --------------------------------------------------------
-    # Verify that allocation items were actually provided.
-    # --------------------------------------------------------
+    # ========================================================
+    # VALIDATE INPUT
+    # ========================================================
 
     if not payload.items:
         raise HTTPException(
             status_code=400,
             detail=(
-                "No inventory items were provided "
-                "for allocation."
+                "No warehouse allocation groups "
+                "were provided."
             )
         )
 
-    relief_id = (
-        payload.relief_id
-        or
-        "RELIEF-2026-"
-        + f"{req.id:05d}"
-    )
+    allocations_created = []
 
-    existing_alloc = (
-        db.query(Allocation)
-        .filter(
-            Allocation.relief_id ==
-            relief_id
-        )
-        .first()
-    )
+    # ========================================================
+    # PROCESS EACH WAREHOUSE
+    # ========================================================
 
-    if existing_alloc:
-        return existing_alloc
+    for warehouse_group in payload.items:
 
-    allocation = Allocation(
-        request_id=req.id,
-        warehouse_id=warehouse.id,
-        relief_id=relief_id,
-        status="APPROVED",
-        ai_score=(
-            req.authority_override_score
-            if req.authority_override_score
-            is not None
-            else req.priority_score
-        ),
-        ai_rationale=(
-            "Authority "
-            +
-            (
-                current_user.full_name
-                if current_user
-                else "Command"
+        warehouse = (
+            db.query(Warehouse)
+            .filter(
+                Warehouse.id ==
+                warehouse_group.warehouse_id
             )
-            +
-            " approved verified inventory "
-            "from "
-            +
-            warehouse.name
-            +
-            "."
-        ),
-        is_partial=False,
-        approved_by_id=(
-            current_user.id
-            if current_user
-            else None
-        ),
-        approved_at=
-            datetime.datetime.utcnow(),
-        override_notes=
-            payload.override_notes
-    )
-
-    db.add(allocation)
-
-    db.flush()
-
-    total_requested_units = 0.0
-    total_allocated_units = 0.0
-
-    allocation_items_created = 0
-
-    # --------------------------------------------------------
-    # Process every requested allocation item
-    # --------------------------------------------------------
-
-    for item_data in payload.items:
-
-        category = str(
-            item_data.get(
-                "category",
-                ""
-            )
-        ).strip()
-
-        item_name = str(
-            item_data.get(
-                "item_name",
-                ""
-            )
-        ).strip()
-
-        requested_alloc_qty = float(
-            item_data.get(
-                "allocated_quantity",
-                0
-            )
+            .first()
         )
 
-        unit = str(
-            item_data.get(
-                "unit",
-                "units"
+        if not warehouse:
+            raise HTTPException(
+                status_code=404,
+                detail=(
+                    "Warehouse not found: "
+                    +
+                    str(
+                        warehouse_group.warehouse_id
+                    )
+                )
             )
-        ).strip()
 
-        if requested_alloc_qty <= 0:
+        if not warehouse_group.items:
             continue
 
         # ----------------------------------------------------
-        # FIND MATCHING INVENTORY
+        # UNIQUE RELIEF ID PER ALLOCATION
         #
-        # HARD SAFETY RULE:
-        # Only VERIFIED inventory with available stock
-        # can ever be allocated.
+        # FR-1049 remains the request tracking code.
+        # Each warehouse allocation gets its own internal
+        # relief identifier.
         # ----------------------------------------------------
 
-        inv_query = (
-            db.query(Inventory)
-            .filter(
-                Inventory.warehouse_id ==
-                warehouse.id,
-
-                Inventory.verification_status ==
-                "VERIFIED",
-
-                Inventory.available_quantity >
-                0
-            )
+        allocation_number = (
+            len(allocations_created) + 1
         )
 
-        # Match item name when supplied.
-        if item_name:
-            inv_query = inv_query.filter(
-                Inventory.item_name.ilike(
-                    "%" +
-                    item_name +
-                    "%"
+        base_relief_id = (
+            payload.relief_id
+            or
+            req.tracking_code
+            or
+            "RELIEF-2026-"
+            +
+            f"{req.id:05d}"
+        )
+
+        relief_id = (
+            f"{base_relief_id}-A{allocation_number}"
+        )
+
+        # ----------------------------------------------------
+# CHECK FOR EXISTING ALLOCATION
+# ----------------------------------------------------
+
+        # ----------------------------------------------------
+# CHECK FOR EXISTING ALLOCATION
+# ----------------------------------------------------
+
+        # ----------------------------------------------------
+        # CREATE ALLOCATION
+        # ----------------------------------------------------
+
+        allocation = Allocation(
+            request_id=req.id,
+
+            warehouse_id=warehouse.id,
+
+            relief_id=relief_id,
+
+            status="APPROVED",
+
+            ai_score=(
+                req.authority_override_score
+                if req.authority_override_score
+                is not None
+                else req.priority_score
+            ),
+
+            ai_rationale=(
+                "Authority "
+                +
+                (
+                    current_user.full_name
+                    if current_user
+                    else "Command"
+                )
+                +
+                " approved verified inventory "
+                "from "
+                +
+                warehouse.name
+                +
+                "."
+            ),
+
+            is_partial=False,
+
+            approved_by_id=(
+                current_user.id
+                if current_user
+                else None
+            ),
+
+            approved_at=
+                datetime.utcnow(),
+
+            override_notes=
+                payload.override_notes
+        )
+
+        db.add(allocation)
+
+        db.flush()
+
+        allocation_items_created = 0
+
+        # ====================================================
+        # PROCESS ITEMS FOR THIS WAREHOUSE
+        # ====================================================
+
+        for item_data in warehouse_group.items:
+
+            category = str(
+                item_data.category
+            ).strip()
+
+            item_name = str(
+                item_data.item_name
+            ).strip()
+
+            requested_alloc_qty = float(
+                item_data.allocated_quantity
+            )
+
+            unit = str(
+                item_data.unit
+            ).strip()
+
+            if requested_alloc_qty <= 0:
+                continue
+
+            # ------------------------------------------------
+            # FIND VERIFIED INVENTORY
+            # ------------------------------------------------
+
+            inv_query = (
+                db.query(Inventory)
+                .filter(
+                    Inventory.warehouse_id ==
+                    warehouse.id,
+
+                    Inventory.verification_status ==
+                    "VERIFIED",
+
+                    Inventory.available_quantity >
+                    0
                 )
             )
 
-        # Match category when supplied.
-        if category:
-            inv_query = inv_query.filter(
-                Inventory.category.ilike(
-                    "%" +
-                    category +
-                    "%"
-                )
-            )
+            # Exact item-name match first
+            inv = None
 
-        inv = inv_query.first()
+            if item_name:
 
-        # ----------------------------------------------------
-        # NO VERIFIED INVENTORY
-        # ----------------------------------------------------
-
-        if not inv:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "No VERIFIED available inventory "
-                    "for "
-                    +
-                    (
-                        item_name
-                        or category
-                        or "requested item"
+                inv = (
+                    inv_query
+                    .filter(
+                        Inventory.item_name.ilike(
+                            item_name
+                        )
                     )
-                    +
-                    " is available at "
+                    .first()
+                )
+
+            # Partial item-name match
+            if not inv and item_name:
+
+                inv = (
+                    inv_query
+                    .filter(
+                        Inventory.item_name.ilike(
+                            "%" +
+                            item_name +
+                            "%"
+                        )
+                    )
+                    .first()
+                )
+
+            # Category fallback
+            if not inv and category:
+
+                inv = (
+                    inv_query
+                    .filter(
+                        Inventory.category.ilike(
+                            "%" +
+                            category +
+                            "%"
+                        )
+                    )
+                    .first()
+                )
+
+            # ------------------------------------------------
+            # NO VERIFIED INVENTORY
+            # ------------------------------------------------
+
+            if not inv:
+
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "No VERIFIED available "
+                        "inventory for "
+                        +
+                        (
+                            item_name
+                            or
+                            category
+                            or
+                            "requested item"
+                        )
+                        +
+                        " at "
+                        +
+                        warehouse.name
+                        +
+                        ". Unknown or unverified "
+                        "stock cannot be allocated."
+                    )
+                )
+
+            # ------------------------------------------------
+            # VERIFY QUANTITY
+            # ------------------------------------------------
+
+            if (
+                inv.available_quantity
+                <
+                requested_alloc_qty
+            ):
+
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Insufficient VERIFIED "
+                        "inventory for "
+                        +
+                        item_name
+                        +
+                        " at "
+                        +
+                        warehouse.name
+                        +
+                        ". Available: "
+                        +
+                        str(
+                            inv.available_quantity
+                        )
+                        +
+                        " "
+                        +
+                        inv.unit
+                        +
+                        ". Required: "
+                        +
+                        str(
+                            requested_alloc_qty
+                        )
+                        +
+                        " "
+                        +
+                        unit
+                    )
+                )
+
+            # ------------------------------------------------
+            # LOCK INVENTORY
+            # ------------------------------------------------
+
+            inv.available_quantity -= (
+                requested_alloc_qty
+            )
+
+            inv.allocated_quantity += (
+                requested_alloc_qty
+            )
+
+            # ------------------------------------------------
+            # CREATE ALLOCATION ITEM
+            # ------------------------------------------------
+
+            allocation_item = AllocationItem(
+                allocation_id=
+                    allocation.id,
+
+                category=
+                    category,
+
+                item_name=
+                    item_name
+                    or
+                    inv.item_name,
+
+                requested_quantity=
+                    requested_alloc_qty,
+
+                allocated_quantity=
+                    requested_alloc_qty,
+
+                unit=
+                    unit
+            )
+
+            db.add(
+                allocation_item
+            )
+
+            allocation_items_created += 1
+
+            # ------------------------------------------------
+            # UPDATE REQUEST FULFILLMENT
+            # ------------------------------------------------
+
+            remaining_to_fulfill = (
+                requested_alloc_qty
+            )
+
+            for req_item in req.items:
+
+                if remaining_to_fulfill <= 0:
+                    break
+
+                category_matches = (
+                    category.lower()
+                    in
+                    req_item.category.lower()
+                )
+
+                name_matches = (
+                    not item_name
+                    or
+                    item_name.lower()
+                    in
+                    req_item.item_name.lower()
+                    or
+                    req_item.item_name.lower()
+                    in
+                    item_name.lower()
+                )
+
+                if (
+                    category_matches
+                    and
+                    name_matches
+                ):
+
+                    remaining_for_item = max(
+                        0.0,
+
+                        req_item.requested_quantity
+                        -
+                        req_item.fulfilled_quantity
+                    )
+
+                    fulfilled_now = min(
+                        remaining_for_item,
+                        remaining_to_fulfill
+                    )
+
+                    req_item.fulfilled_quantity += (
+                        fulfilled_now
+                    )
+
+                    remaining_to_fulfill -= (
+                        fulfilled_now
+                    )
+
+        # ====================================================
+        # VALIDATE ALLOCATION
+        # ====================================================
+
+        if allocation_items_created == 0:
+
+            db.rollback()
+
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "No valid VERIFIED inventory "
+                    "items were allocated from "
                     +
                     warehouse.name
                     +
-                    ". Unknown or unverified stock "
-                    "cannot be allocated. Create a "
-                    "procurement manifest instead."
+                    "."
                 )
             )
 
-        # ----------------------------------------------------
-        # VERIFY QUANTITY
-        # ----------------------------------------------------
-
-        if (
-            inv.available_quantity
-            <
-            requested_alloc_qty
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "Insufficient VERIFIED inventory "
-                    "for "
-                    +
-                    item_name
-                    +
-                    ". Available: "
-                    +
-                    str(
-                        inv.available_quantity
-                    )
-                    +
-                    " "
-                    +
-                    inv.unit
-                    +
-                    ". Required: "
-                    +
-                    str(
-                        requested_alloc_qty
-                    )
-                    +
-                    " "
-                    +
-                    unit
-                )
-            )
-
-        # ----------------------------------------------------
-        # LOCK VERIFIED INVENTORY
-        # ----------------------------------------------------
-
-        inv.available_quantity -= (
-            requested_alloc_qty
-        )
-
-        inv.allocated_quantity += (
-            requested_alloc_qty
-        )
-
-        allocation_item = AllocationItem(
-            allocation_id=
-                allocation.id,
-
-            category=
-                category,
-
-            item_name=
-                item_name
-                or
-                inv.item_name,
-
-            requested_quantity=
-                requested_alloc_qty,
-
-            allocated_quantity=
-                requested_alloc_qty,
-
-            unit=
-                unit
-        )
-
-        db.add(
-            allocation_item
-        )
-
-        allocation_items_created += 1
-
-        # ----------------------------------------------------
-        # UPDATE REQUEST FULFILLMENT
-        # ----------------------------------------------------
-
-        for req_item in req.items:
-
-            if (
-                category.lower()
-                in
-                req_item.category.lower()
-            ):
-                remaining_for_item = max(
-                    0.0,
-                    req_item.requested_quantity
-                    -
-                    req_item.fulfilled_quantity
-                )
-
-                fulfilled_now = min(
-                    remaining_for_item,
-                    requested_alloc_qty
-                )
-
-                req_item.fulfilled_quantity += (
-                    fulfilled_now
-                )
-
-                total_requested_units += (
-                    req_item.requested_quantity
-                )
-
-                total_allocated_units += (
-                    req_item.fulfilled_quantity
-                )
-
-                break
-
-    # --------------------------------------------------------
-    # Ensure at least one valid inventory item was allocated
-    # --------------------------------------------------------
-
-    if allocation_items_created == 0:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "No valid VERIFIED inventory items "
-                "were available for allocation."
-            )
-        )
-
-    # --------------------------------------------------------
-    # Determine request status
-    # --------------------------------------------------------
-
-    request_is_fully_fulfilled = True
-
-    for req_item in req.items:
-
-        if (
-            req_item.fulfilled_quantity
-            <
-            req_item.requested_quantity
-        ):
-            request_is_fully_fulfilled = False
-            break
-
-    if request_is_fully_fulfilled:
-
-        req.status = (
-            RequestStatus.ALLOCATED
-        )
+        # ====================================================
+        # DETERMINE WHETHER THIS ALLOCATION IS PARTIAL
+        # ====================================================
 
         allocation.is_partial = False
 
-    else:
+        for allocation_item in (
+            db.query(AllocationItem)
+            .filter(
+                AllocationItem.allocation_id ==
+                allocation.id
+            )
+            .all()
+        ):
 
-        req.status = (
-            RequestStatus.PARTIALLY_FULFILLED
-        )
+            if (
+                allocation_item.allocated_quantity
+                <
+                allocation_item.requested_quantity
+            ):
+                allocation.is_partial = True
+                break
 
-        allocation.is_partial = True
-
-    # --------------------------------------------------------
-    # CREATE DELIVERY RECORD
-    #
-    # IMPORTANT:
-    # This does NOT dispatch the vehicle.
-    # --------------------------------------------------------
-
-    existing_delivery = (
-        db.query(Delivery)
-        .filter(
-            Delivery.allocation_id ==
-            allocation.id
-        )
-        .first()
-    )
-
-    if not existing_delivery:
+        # ====================================================
+        # CREATE DELIVERY
+        # ====================================================
 
         delivery = Delivery(
             relief_id=
@@ -905,17 +977,13 @@ def approve_allocation(
             )
         )
 
-        db.add(
-            delivery
-        )
+        db.add(delivery)
 
         db.flush()
 
-        # ----------------------------------------------------
-        # GENERATE ROUTE PLAN ONLY
-        #
-        # Do NOT assign a vehicle yet.
-        # ----------------------------------------------------
+        # ====================================================
+        # CREATE ROUTE PLAN
+        # ====================================================
 
         route = Route(
             delivery_id=
@@ -992,23 +1060,82 @@ def approve_allocation(
                 True
         )
 
-        db.add(
-            route
+        db.add(route)
+
+        allocations_created.append(
+            allocation
         )
 
-    # --------------------------------------------------------
-    # COMMIT INVENTORY LOCK + ALLOCATION
-    # --------------------------------------------------------
+    # ========================================================
+    # ENSURE AT LEAST ONE ALLOCATION WAS CREATED
+    # ========================================================
+
+    if not allocations_created:
+
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "No new allocations were created. "
+                "The requested allocations may "
+                "already exist."
+            )
+        )
+
+    # ========================================================
+    # DETERMINE REQUEST STATUS
+    # ========================================================
+
+    request_is_fully_fulfilled = True
+
+    for req_item in req.items:
+
+        if (
+            req_item.fulfilled_quantity
+            <
+            req_item.requested_quantity
+        ):
+
+            request_is_fully_fulfilled = False
+
+            break
+
+    if request_is_fully_fulfilled:
+
+        req.status = (
+            RequestStatus.ALLOCATED
+        )
+
+    else:
+
+        req.status = (
+            RequestStatus.PARTIALLY_FULFILLED
+        )
+
+    # ========================================================
+    # COMMIT EVERYTHING TOGETHER
+    # ========================================================
 
     db.commit()
 
-    db.refresh(
-        allocation
-    )
+    # ========================================================
+    # REFRESH ALLOCATIONS
+    # ========================================================
 
-    # --------------------------------------------------------
-    # AUDIT
-    # --------------------------------------------------------
+    for allocation in allocations_created:
+
+        db.refresh(
+            allocation
+        )
+
+    # ========================================================
+    # AUDIT LOG
+    # ========================================================
+
+    warehouse_names = [
+        allocation.warehouse.name
+        for allocation
+        in allocations_created
+    ]
 
     log_audit_event(
         db=db,
@@ -1029,13 +1156,13 @@ def approve_allocation(
             "AUTHORITY",
 
         action=
-            "APPROVE_ALLOCATION",
+            "APPROVE_MULTI_WAREHOUSE_ALLOCATION",
 
         entity_type=
-            "ALLOCATION",
+            "COMMUNITY_REQUEST",
 
         entity_id=
-            relief_id,
+            req.tracking_code,
 
         previous_state=
             "PENDING_ALLOCATION",
@@ -1043,13 +1170,22 @@ def approve_allocation(
         new_state=
             json.dumps({
                 "status":
-                    "APPROVED",
+                    req.status.value
+                    if hasattr(
+                        req.status,
+                        "value"
+                    )
+                    else str(
+                        req.status
+                    ),
 
-                "warehouse":
-                    warehouse.name,
+                "warehouses":
+                    warehouse_names,
 
-                "partial":
-                    allocation.is_partial,
+                "allocation_count":
+                    len(
+                        allocations_created
+                    ),
 
                 "vehicle_assigned":
                     False,
@@ -1060,7 +1196,15 @@ def approve_allocation(
 
         reason=(
             "Approved verified relief allocation "
-            "for "
+            "across "
+            +
+            str(
+                len(
+                    allocations_created
+                )
+            )
+            +
+            " warehouse(s) for "
             +
             req.location_name
             +
@@ -1073,4 +1217,6 @@ def approve_allocation(
         )
     )
 
-    return allocation
+    db.commit()
+
+    return allocations_created

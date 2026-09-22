@@ -159,7 +159,7 @@ class InventoryBatchResponse(BaseModel):
     batch_number: str
     quantity: float
     expiry_date: Optional[datetime.datetime] = None
-    received_date: datetime.datetime
+    
 
     class Config:
         from_attributes = True
@@ -183,6 +183,7 @@ class InventoryResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
 class WarehouseResponse(BaseModel):
     id: int
     name: str
@@ -196,6 +197,20 @@ class WarehouseResponse(BaseModel):
 
     class Config:
         from_attributes = True
+class InventoryReceiveRequest(BaseModel):
+    warehouse_id: int
+    category: str
+    item_name: str
+    unit: str
+    quantity: float
+    min_threshold: float = 100.0
+    batch_number: str
+    expiry_date: Optional[datetime.datetime] = None
+    verification_source: Optional[str] = None
+
+
+class InventoryVerifyRequest(BaseModel):
+    verification_source: str
 
 # Allocation & Matching Schemas
 class MatchedWarehouseItem(BaseModel):
@@ -243,13 +258,23 @@ class AIFacilitySupportRecommendation(BaseModel):
     summary_rationale: str
     facilities: List[MatchedFacility]
     
+class ApproveAllocationItem(BaseModel):
+    category: str
+    item_name: str
+    allocated_quantity: float
+    unit: str
+
+
+class ApproveAllocationWarehouse(BaseModel):
+    warehouse_id: int
+    items: List[ApproveAllocationItem]
+
+
 class ApproveAllocationRequest(BaseModel):
     request_id: int
-    warehouse_id: int
     relief_id: Optional[str] = None
-    items: List[Dict[str, Any]] # [{"category": "Drinking Water", "item_name": "Bottled Water", "allocated_quantity": 2000, "unit": "L"}]
+    items: List[ApproveAllocationWarehouse]
     override_notes: Optional[str] = None
-
 class AllocationResponse(BaseModel):
     id: int
     request_id: int
@@ -304,7 +329,7 @@ class TimelineStep(BaseModel):
     step: str
     label: str
     status: str # COMPLETED, CURRENT, PENDING
-    timestamp: Optional[str] = None
+    created_at: Optional[str] = None
     actor: Optional[str] = None
     details: Optional[str] = None
 
@@ -398,7 +423,7 @@ class AuditLogResponse(BaseModel):
     previous_state: Optional[str] = None
     new_state: Optional[str] = None
     reason: Optional[str] = None
-    timestamp: datetime.datetime
+    created_at: Optional[datetime.datetime] = None
     prev_hash: Optional[str] = None
     curr_hash: str
 

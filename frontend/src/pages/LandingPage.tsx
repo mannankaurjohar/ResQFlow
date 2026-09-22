@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
-  Waves, Radio, FileText, Search, ArrowRight, ShieldCheck,
-  Cpu, MapPin, Truck, CheckCircle2, AlertTriangle, Eye, Compass
+  Waves, Radio, FileText, Search, ArrowRight,
+  Cpu, MapPin, Truck, AlertTriangle, Eye, Compass
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
@@ -33,7 +33,7 @@ export const LandingPage: React.FC = () => {
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-ivory font-sans leading-tight">
-            RESQFLOW AI
+            ResQFlow
           </h1>
 
           <p className="text-xl sm:text-2xl font-medium text-terracotta mt-2">
@@ -96,40 +96,7 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Operational Impact Metrics */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-          <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate">People Assisted</div>
-            <div className="text-3xl font-extrabold text-navy mt-1">35,420+</div>
-            <div className="text-xs text-status-fulfilled font-medium mt-1 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Across 5 flood sectors
-            </div>
-          </div>
-
-          <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate">Critical Fulfillment</div>
-            <div className="text-3xl font-extrabold text-navy mt-1">94.2%</div>
-            <div className="text-xs text-slate mt-1">Within 4 hours average</div>
-          </div>
-
-          <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate">Clean Water Moved</div>
-            <div className="text-3xl font-extrabold text-terracotta mt-1">18,500 L</div>
-            <div className="text-xs text-slate mt-1">Verified community handovers</div>
-          </div>
-
-          <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
-            <div className="text-xs font-semibold uppercase tracking-wider text-slate">Ledger Integrity</div>
-            <div className="text-3xl font-extrabold text-navy mt-1">100%</div>
-            <div className="text-xs text-emerald-700 font-medium mt-1 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" /> SHA-256 Chained Hash
-            </div>
-          </div>
-
-        </div>
-      </section>
+      
 
       {/* 5 Core Questions Answered Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6">

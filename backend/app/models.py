@@ -1,10 +1,14 @@
-import datetime
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+IST = ZoneInfo("Asia/Kolkata")
 import enum
 from sqlalchemy import (
     Column, Integer, String, Float, Text, Boolean, DateTime, ForeignKey, Enum as SQLEnum, Index
 )
 from sqlalchemy.orm import relationship
 from app.database import Base
+
 
 class UserRole(str, enum.Enum):
     AUTHORITY = "AUTHORITY"
@@ -61,7 +65,7 @@ class Organization(Base):
     address = Column(String(255), nullable=True)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     users = relationship("User", back_populates="organization")
     warehouses = relationship("Warehouse", back_populates="organization")
@@ -77,7 +81,7 @@ class User(Base):
     organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
     phone = Column(String(50), nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     organization = relationship("Organization", back_populates="users")
 
@@ -89,7 +93,7 @@ class DisasterEvent(Base):
     status = Column(String(50), default="ACTIVE")
     severity = Column(SQLEnum(SeverityLevel), default=SeverityLevel.HIGH, nullable=False)
     description = Column(Text, nullable=True)
-    started_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     zones = relationship("AffectedZone", back_populates="disaster")
 
@@ -107,7 +111,7 @@ class AffectedZone(Base):
     center_lat = Column(Float, nullable=False)
     center_lon = Column(Float, nullable=False)
     is_isolated = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     disaster = relationship("DisasterEvent", back_populates="zones")
     requests = relationship("CommunityRequest", back_populates="zone")
@@ -142,8 +146,8 @@ class CommunityRequest(Base):
     override_by = Column(String(100), nullable=True)
     
     status = Column(SQLEnum(RequestStatus), default=RequestStatus.PENDING, nullable=False)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
+    updated_at = Column(DateTime, default=lambda: datetime.now(IST), onupdate=lambda: datetime.now(IST))
 
     zone = relationship("AffectedZone", back_populates="requests")
     items = relationship("RequestItem", back_populates="request", cascade="all, delete-orphan")
@@ -172,7 +176,7 @@ class RequestVerification(Base):
     similarity_score = Column(Float, default=0.0)
     notes = Column(Text, nullable=True)
     action_taken = Column(String(50), default="FLAGGED")
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     request = relationship("CommunityRequest", foreign_keys=[request_id], back_populates="verifications")
 
@@ -276,8 +280,8 @@ class Inventory(Base):
 
     updated_at = Column(
         DateTime,
-        default=datetime.datetime.utcnow,
-        onupdate=datetime.datetime.utcnow
+        default=lambda: datetime.now(IST),
+        onupdate=lambda: datetime.now(IST)
     )
 
     warehouse = relationship(
@@ -299,7 +303,7 @@ class InventoryBatch(Base):
     quantity = Column(Float, nullable=False)
     expiry_date = Column(DateTime, nullable=True)
     donor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    received_date = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     inventory = relationship("Inventory", back_populates="batches")
 
@@ -314,7 +318,7 @@ class Donation(Base):
     target_zone_id = Column(Integer, ForeignKey("affected_zones.id"), nullable=True)
     status = Column(SQLEnum(ReliefStatus), default=ReliefStatus.DONATED, nullable=False)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     items = relationship("DonationItem", back_populates="donation")
 
@@ -342,7 +346,7 @@ class Allocation(Base):
     approved_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     approved_at = Column(DateTime, nullable=True)
     override_notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     request = relationship("CommunityRequest", back_populates="allocations")
     warehouse = relationship("Warehouse", back_populates="allocations")
@@ -390,11 +394,12 @@ class Delivery(Base):
     status = Column(SQLEnum(ReliefStatus), default=ReliefStatus.ALLOCATED, nullable=False)
     dispatched_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)
+    in_transit_at = Column(DateTime, nullable=True)
     estimated_delivery_at = Column(DateTime, nullable=True)
     proof_photo_url = Column(String(255), nullable=True)
     recipient_signature = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
     allocation = relationship("Allocation", back_populates="delivery")
     vehicle = relationship("Vehicle", back_populates="deliveries")
@@ -437,7 +442,7 @@ class AuditLog(Base):
     previous_state = Column(Text, nullable=True)
     new_state = Column(Text, nullable=True)
     reason = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(IST))
     prev_hash = Column(String(64), nullable=True)
     curr_hash = Column(String(64), nullable=False)
 class OfficialWarehouse(Base):
@@ -516,10 +521,10 @@ class OfficialWarehouse(Base):
 
     source_verified_at = Column(
         DateTime,
-        default=datetime.datetime.utcnow
+        default=lambda: datetime.now(IST)
     )
 
     created_at = Column(
         DateTime,
-        default=datetime.datetime.utcnow
+        default=lambda: datetime.now(IST)
     )

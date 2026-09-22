@@ -518,7 +518,7 @@ export const TraceReliefPage: React.FC = () => {
                         <span>{step.label}</span>
                         {isCurr && <span className="text-[10px] bg-terracotta text-white px-2 py-0.2 rounded font-semibold">ACTIVE STAGE</span>}
                       </div>
-                      <div className="text-slate font-mono text-[11px]">{step.timestamp || 'Pending execution'}</div>
+                      <div className="text-slate font-mono text-[11px]">{step.created_at || 'Pending execution'}</div>
                     </div>
 
                     <div className="text-slate-dark mt-1 text-xs">

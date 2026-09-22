@@ -182,7 +182,7 @@ export interface TimelineStep {
   step: string;
   label: string;
   status: 'COMPLETED' | 'CURRENT' | 'PENDING';
-  timestamp?: string;
+  created_at?: string;
   actor?: string;
   details?: string;
 }
@@ -321,7 +321,8 @@ export interface AuditLog {
   previous_state?: string;
   new_state?: string;
   reason?: string;
-  timestamp: string;
+  created_at: string;
   prev_hash?: string;
   curr_hash: string;
 }
+

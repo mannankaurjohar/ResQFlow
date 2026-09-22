@@ -68,42 +68,47 @@ export const AiMatchingModal: React.FC = () => {
     setProcurementManifest(null);
     setLoading(true);
 
-    Promise.all([
-      api.getMatchRecommendation(
-        activeMatchModalRequest.id
-      ),
-      api.getFacilitySupportRecommendation(
-        activeMatchModalRequest.id
-      )
-    ])
-      .then(
-        ([
-          resourceData,
-          facilityData
-        ]) => {
-          setRecommendation(
-            resourceData
-          );
+  api.getMatchRecommendation(
+  activeMatchModalRequest.id
+)
+  .then(resourceData => {
+    setRecommendation(resourceData);
+    setLoading(false);
 
-          setFacilityRecommendation(
-            facilityData
-          );
-        }
-      )
+    // Load facility support separately.
+    // This must not block the main AI resource result.
+    api.getFacilitySupportRecommendation(
+      activeMatchModalRequest.id
+    )
+      .then(facilityData => {
+        setFacilityRecommendation(
+          facilityData
+        );
+      })
       .catch(error => {
         console.error(
-          'AI matching error:',
+          'Facility support recommendation error:',
           error
         );
 
-        showNotification(
-          'Unable to load AI matching recommendations',
-          'error'
-        );
-      })
-      .finally(() => {
-        setLoading(false);
+        // Facility support is supplementary.
+        // Do not block the main AI matching result.
+        setFacilityRecommendation(null);
       });
+  })
+  .catch(error => {
+    console.error(
+      'AI matching error:',
+      error
+    );
+
+    showNotification(
+      'Unable to load AI matching recommendations',
+      'error'
+    );
+
+    setLoading(false);
+  });
   }, [
     activeMatchModalRequest,
     showNotification
@@ -140,48 +145,82 @@ export const AiMatchingModal: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const firstRecommendation =
-        recommendation.recommendations[0];
-
-      const itemsToAllocate =
-        recommendation.recommendations.map(
-          item => ({
-            category: item.category,
-            item_name: item.item_name,
-            allocated_quantity:
-              item.recommended_qty,
-            unit: item.unit
-          })
-        );
-
-      const allocation =
-        await api.approveAllocation({
-          request_id:
-            activeMatchModalRequest.id,
-
+      const warehouseGroups =
+  recommendation.recommendations.reduce(
+    (
+      groups: Record<number, {
+        warehouse_id: number;
+        items: Array<{
+          category: string;
+          item_name: string;
+          allocated_quantity: number;
+          unit: string;
+        }>;
+      }>,
+      item
+    ) => {
+      if (!groups[item.warehouse_id]) {
+        groups[item.warehouse_id] = {
           warehouse_id:
-            firstRecommendation.warehouse_id,
+            item.warehouse_id,
 
-          items: itemsToAllocate,
+          items: []
+        };
+      }
 
-          override_notes:
-            'Human Authority approved AI resource recommendation. Inventory locked for manifest generation.'
-        });
+      groups[item.warehouse_id].items.push({
+        category:
+          item.category,
 
+        item_name:
+          item.item_name,
+
+        allocated_quantity:
+          item.recommended_qty,
+
+        unit:
+          item.unit
+      });
+
+      return groups;
+    },
+    {}
+  );
+
+const allocationGroups =
+  Object.values(
+    warehouseGroups
+  );
+
+const allocations =
+  await api.approveAllocation({
+    request_id:
+      activeMatchModalRequest.id,
+
+    relief_id:
+      activeMatchModalRequest.tracking_code,
+
+    items:
+      allocationGroups,
+
+    override_notes:
+      'Human Authority approved AI resource recommendation. Verified inventory locked for allocation.'
+  });
+       
       showNotification(
-        'Allocation approved. Manifest ' +
-          allocation.relief_id +
-          ' generated. Dispatch requires a separate logistics action.',
-        'success'
-      );
+  'Allocation approved across ' +
+    allocations.length +
+    ' warehouse(s). Dispatch requires a separate logistics action.',
+  'success'
+);
 
       setActiveMatchModalRequest(
         null
       );
 
       setTraceIdInput(
-        allocation.relief_id
-      );
+  activeMatchModalRequest.tracking_code
+);
 
       setActiveTab('trace');
     } catch (error) {
@@ -293,7 +332,7 @@ export const AiMatchingModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-navy-900/60 backdrop-blur-sm">
-      <div className="bg-ivory rounded-xl border border-slate/20 shadow-elevated w-full max-w-3xl max-h-[92vh] overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+      <div className="bg-ivory rounded-xl border border-slate/20 shadow-elevated w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
 
         {/* HEADER */}
         <div className="bg-navy text-ivory px-6 py-4 flex items-center justify-between">
@@ -322,7 +361,7 @@ export const AiMatchingModal: React.FC = () => {
         </div>
 
         {/* BODY */}
-        <div className="p-6 overflow-y-auto max-h-[calc(92vh-130px)]">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 sm:p-6">
 
           {loading || !recommendation ? (
             <div className="py-12 text-center text-slate">
@@ -607,7 +646,7 @@ export const AiMatchingModal: React.FC = () => {
               {procurementManifest && (
                 <div className="bg-white border-2 border-terracotta/30 rounded-lg p-4 mb-4">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                       <FileText className="w-5 h-5 text-terracotta" />
 
                       <div>
@@ -696,7 +735,7 @@ export const AiMatchingModal: React.FC = () => {
         </div>
 
         {/* FOOTER */}
-        <div className="bg-ivory-100 px-6 py-3 border-t border-slate/20 flex items-center justify-between">
+        <div className="bg-ivory-100 px-4 sm:px-6 py-3 border-t border-slate/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shrink-0">
           <button
             onClick={() =>
               setActiveMatchModalRequest(null)
@@ -706,7 +745,7 @@ export const AiMatchingModal: React.FC = () => {
             Cancel
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
             {hasShortage &&
               !procurementManifest && (
                 <button

@@ -286,7 +286,7 @@ class TimelineStep(BaseModel):
     step: str
     label: str
     status: str # COMPLETED, CURRENT, PENDING
-    timestamp: Optional[str] = None
+    created_at: Optional[str] = None
     actor: Optional[str] = None
     details: Optional[str] = None
 
@@ -380,7 +380,7 @@ class AuditLogResponse(BaseModel):
     previous_state: Optional[str] = None
     new_state: Optional[str] = None
     reason: Optional[str] = None
-    timestamp: datetime.datetime
+    created_at: datetime.datetime
     prev_hash: Optional[str] = None
     curr_hash: str
 

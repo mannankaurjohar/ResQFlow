@@ -67,7 +67,9 @@ export interface OfficialWarehouse {
   source: string;
   source_verified_at: string | null;
 }
-const API_BASE = 'http://127.0.0.1:8000/api';
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  'http://127.0.0.1:8000/api';
 
 const api = {
   // ============================================================
@@ -439,14 +441,21 @@ async getOfficialWarehouses(
   },
 
   async approveAllocation(
-    payload: {
-      request_id: number;
+  payload: {
+    request_id: number;
+    relief_id?: string;
+    items: Array<{
       warehouse_id: number;
-      relief_id?: string;
-      items: any[];
-      override_notes?: string;
-    }
-  ): Promise<any> {
+      items: Array<{
+        category: string;
+        item_name: string;
+        allocated_quantity: number;
+        unit: string;
+      }>;
+    }>;
+    override_notes?: string;
+  }
+): Promise<any[]> {
     const res = await fetch(
       API_BASE +
         '/allocations/approve',
@@ -557,55 +566,59 @@ async getOfficialWarehouses(
     return res.json();
   },
 
-  async updateDeliveryStatus(
-    deliveryId: number,
-    status: string,
-    notes?: string
-  ): Promise<any> {
-    const res = await fetch(
-      API_BASE +
-        '/deliveries/' +
-        deliveryId +
-        '/status',
-      {
-        method: 'PATCH',
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
-        body: JSON.stringify({
-          status,
-          notes
-        })
+ async updateDeliveryStatus(
+  deliveryId: number,
+  status: string,
+  notes?: string,
+  proofPhotoUrl?: string,
+  recipientSignature?: string
+): Promise<any> {
+  const res = await fetch(
+    API_BASE +
+      '/deliveries/' +
+      deliveryId +
+      '/status',
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type':
+          'application/json'
+      },
+      body: JSON.stringify({
+        status,
+        notes,
+        proof_photo_url: proofPhotoUrl,
+        recipient_signature: recipientSignature
+      })
+    }
+  );
+
+  if (!res.ok) {
+    let message =
+      'Failed to update delivery status';
+
+    try {
+      const data =
+        await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail ===
+          'string'
+            ? data.detail
+            : JSON.stringify(
+                data.detail
+              );
       }
-    );
-
-    if (!res.ok) {
-      let message =
-        'Failed to update delivery status';
-
-      try {
-        const data =
-          await res.json();
-
-        if (data?.detail) {
-          message =
-            typeof data.detail ===
-            'string'
-              ? data.detail
-              : JSON.stringify(
-                  data.detail
-                );
-        }
-      } catch {
-        // Keep default message
-      }
-
-      throw new Error(message);
+    } catch {
+      // Keep default message
     }
 
-    return res.json();
-  },
+    throw new Error(message);
+  }
+
+  return res.json();
+},
 
   // ============================================================
   // Inventory

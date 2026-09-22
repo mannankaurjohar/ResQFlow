@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { UserRole } from '../types';
 
+
+
 export const Navbar: React.FC = () => {
   const {
     activeRole, setActiveRole,
@@ -52,7 +54,7 @@ export const Navbar: React.FC = () => {
             <div className="min-w-0">
               <div className="flex items-center space-x-2">
                 <span className="font-extrabold text-lg tracking-tight text-ivory font-sans whitespace-nowrap">
-                  RESQFLOW AI
+                  ResQFlow
                 </span>
 
                 {/* Hidden on mobile so it doesn't squeeze the navbar */}
@@ -125,7 +127,16 @@ export const Navbar: React.FC = () => {
             >
               Warehouses
             </button>
-
+            <button
+  onClick={() => setActiveTab('donor')}
+  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+    activeTab === 'donor'
+      ? 'bg-navy-800 text-ivory font-semibold'
+      : 'text-slate-light hover:text-ivory hover:bg-navy-800/60'
+  }`}
+>
+  Donation
+</button>
             <button
               onClick={() => setActiveTab('analytics')}
               className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
@@ -300,7 +311,12 @@ export const Navbar: React.FC = () => {
               >
                 Warehouses
               </button>
-
+              <button
+  onClick={() => navigateTo('donor')}
+  className="w-full text-left px-3 py-2.5 rounded-md text-sm text-slate-light hover:text-ivory hover:bg-navy-800"
+>
+  Donation
+</button>
               <button
                 onClick={() => navigateTo('analytics')}
                 className="w-full text-left px-3 py-2.5 rounded-md text-sm text-slate-light hover:text-ivory hover:bg-navy-800"

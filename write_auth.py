@@ -99,7 +99,7 @@ def log_audit_event(
         previous_state=previous_state,
         new_state=new_state,
         reason=reason,
-        timestamp=now,
+        created_at=now,
         prev_hash=prev_hash,
         curr_hash=curr_hash
     )

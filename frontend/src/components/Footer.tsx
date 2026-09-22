@@ -12,13 +12,13 @@ export const Footer: React.FC = () => {
               <div className="w-8 h-8 rounded bg-terracotta flex items-center justify-center">
                 <Waves className="w-5 h-5 text-ivory" />
               </div>
-              <span className="font-extrabold text-lg tracking-tight">RESQFLOW AI</span>
+              <span className="font-extrabold text-lg tracking-tight">ResQFlow</span>
             </div>
             <p className="text-slate-light text-sm max-w-md leading-relaxed mb-4">
               “Know what is needed. Know where it is needed. Know where the resources went.”
             </p>
             <p className="text-xs text-slate max-w-md">
-              ResQFlow AI connects community needs with relief resources using explainable AI, GIS intelligence and transparent delivery tracking.
+              ResQFlow connects community needs with relief resources using explainable AI, GIS intelligence and transparent delivery tracking.
             </p>
           </div>
 
@@ -57,7 +57,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="border-t border-navy-800 mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-slate">
-          <div>© 2026 ResQFlow AI. Open humanitarian coordination technology.</div>
+          <div>© 2026 ResQFlow. Open humanitarian coordination technology.</div>
           <div className="mt-2 sm:mt-0 flex items-center space-x-4">
             <span>SHA-256 Tamper-Evident Ledger Active</span>
             <span>Zero External API Critical Dependencies</span>
@@ -67,3 +67,4 @@ export const Footer: React.FC = () => {
     </footer>
   );
 };
+

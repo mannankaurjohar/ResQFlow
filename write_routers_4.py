@@ -479,7 +479,7 @@ def verify_audit_chain_integrity(db: Session = Depends(get_db)):
             )
             
         # Re-compute current hash
-        payload = f"{log.prev_hash}|{log.timestamp.isoformat()}|{log.actor_name}|{log.actor_role}|{log.action}|{log.entity_type}|{log.entity_id}|{log.previous_state or ''}|{log.new_state or ''}|{log.reason or ''}"
+        payload = f"{log.prev_hash}|{log.created_at.isoformat()}|{log.actor_name}|{log.actor_role}|{log.action}|{log.entity_type}|{log.entity_id}|{log.previous_state or ''}|{log.new_state or ''}|{log.reason or ''}"
         recomputed = hashlib.sha256(payload.encode("utf-8")).hexdigest()
         
         if recomputed != log.curr_hash:

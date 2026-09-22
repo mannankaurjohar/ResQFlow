@@ -29,7 +29,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeTab, setActiveTab] = useState<string>('landing');
   const [isEmergencyMode, setIsEmergencyMode] = useState<boolean>(false);
   const [isEscalated, setIsEscalated] = useState<boolean>(false);
-  const [traceIdInput, setTraceIdInput] = useState<string>('RELIEF-2026-00482');
+  const [traceIdInput, setTraceIdInput] = useState<string>('');
   const [activePriorityModalRequest, setActivePriorityModalRequest] = useState<CommunityRequest | null>(null);
   const [activeMatchModalRequest, setActiveMatchModalRequest] = useState<CommunityRequest | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'warning' | 'error' } | null>(null);
@@ -101,3 +101,4 @@ export const useApp = () => {
   if (!context) throw new Error('useApp must be used within AppProvider');
   return context;
 };
+

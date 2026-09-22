@@ -361,7 +361,7 @@ class AuditLog(Base):
     previous_state = Column(Text, nullable=True)
     new_state = Column(Text, nullable=True)
     reason = Column(Text, nullable=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
     prev_hash = Column(String(64), nullable=True)
     curr_hash = Column(String(64), nullable=False)
 """

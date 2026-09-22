@@ -264,7 +264,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="DONATED",
             label="Pledged by Donor",
             status="COMPLETED" if current_idx >= 0 else "PENDING",
-            timestamp=(base_time).strftime("%b %d, %H:%M"),
+            created_at=(base_time).strftime("%b %d, %H:%M"),
             actor=donation.donor_name if donation else "Relief Contributor",
             details="Relief pledge registered in central transparent ledger."
         ),
@@ -272,7 +272,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="RECEIVED",
             label="Received at Warehouse",
             status="COMPLETED" if current_idx >= 1 else ("CURRENT" if current_idx == 0 else "PENDING"),
-            timestamp=(base_time + datetime.timedelta(hours=1.2)).strftime("%b %d, %H:%M") if current_idx >= 1 else None,
+            created_at=(base_time + datetime.timedelta(hours=1.2)).strftime("%b %d, %H:%M") if current_idx >= 1 else None,
             actor="Warehouse Inflow Inspector",
             details="Cargo verified, scanned, and physical condition authenticated."
         ),
@@ -280,7 +280,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="VERIFIED",
             label="Quality & Batch Verified",
             status="COMPLETED" if current_idx >= 2 else ("CURRENT" if current_idx == 1 else "PENDING"),
-            timestamp=(base_time + datetime.timedelta(hours=1.8)).strftime("%b %d, %H:%M") if current_idx >= 2 else None,
+            created_at=(base_time + datetime.timedelta(hours=1.8)).strftime("%b %d, %H:%M") if current_idx >= 2 else None,
             actor="Relief Quality Officer",
             details="Lot numbers and expiration dates certified safe for consumption."
         ),
@@ -288,7 +288,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="STORED",
             label="Stored in Climate Buffer",
             status="COMPLETED" if current_idx >= 3 else ("CURRENT" if current_idx == 2 else "PENDING"),
-            timestamp=(base_time + datetime.timedelta(hours=2.4)).strftime("%b %d, %H:%M") if current_idx >= 3 else None,
+            created_at=(base_time + datetime.timedelta(hours=2.4)).strftime("%b %d, %H:%M") if current_idx >= 3 else None,
             actor="Inventory Controller",
             details=f"Palletized in {allocation.warehouse.name if allocation and allocation.warehouse else 'Central Hub'}."
         ),
@@ -296,7 +296,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="ALLOCATED",
             label="AI Matched & Authority Approved",
             status="COMPLETED" if current_idx >= 4 else ("CURRENT" if current_idx == 3 else "PENDING"),
-            timestamp=(base_time + datetime.timedelta(hours=3.5)).strftime("%b %d, %H:%M") if current_idx >= 4 else None,
+            created_at=(base_time + datetime.timedelta(hours=3.5)).strftime("%b %d, %H:%M") if current_idx >= 4 else None,
             actor="Emergency Operations Authority",
             details=f"Matched to {request.location_name if request else 'Flood Zone B'} based on priority score."
         ),
@@ -304,7 +304,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="DISPATCHED",
             label="Loaded & Manifest Issued",
             status="COMPLETED" if current_idx >= 5 else ("CURRENT" if current_idx == 4 else "PENDING"),
-            timestamp=(base_time + datetime.timedelta(hours=4.2)).strftime("%b %d, %H:%M") if current_idx >= 5 else None,
+            created_at=(base_time + datetime.timedelta(hours=4.2)).strftime("%b %d, %H:%M") if current_idx >= 5 else None,
             actor="Logistics Dispatcher",
             details=f"Loaded onto {delivery.vehicle.vehicle_type if delivery and delivery.vehicle else 'All-Terrain Relief Truck'}."
         ),
@@ -312,7 +312,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="IN_TRANSIT",
             label="Navigating Inundated Corridor",
             status="COMPLETED" if current_idx >= 6 else ("CURRENT" if current_idx == 5 else "PENDING"),
-            timestamp=(base_time + datetime.timedelta(hours=4.9)).strftime("%b %d, %H:%M") if current_idx >= 6 else None,
+            created_at=(base_time + datetime.timedelta(hours=4.9)).strftime("%b %d, %H:%M") if current_idx >= 6 else None,
             actor=delivery.driver_name if delivery and delivery.driver_name else "Field Convoy Driver",
             details="Live GPS tracking active; route avoiding flooded Causeway Bridge."
         ),
@@ -320,7 +320,7 @@ def trace_relief_package(identifier: str, db: Session = Depends(get_db)):
             step="DELIVERED",
             label="Verified Community Handover",
             status="COMPLETED" if current_idx >= 7 else ("CURRENT" if current_idx == 6 else "PENDING"),
-            timestamp=delivery.delivered_at.strftime("%b %d, %H:%M") if (delivery and delivery.delivered_at) else (
+            created_at=delivery.delivered_at.strftime("%b %d, %H:%M") if (delivery and delivery.delivered_at) else (
                 (base_time + datetime.timedelta(hours=5.8)).strftime("%b %d, %H:%M") if current_idx >= 7 else None
             ),
             actor="Community Representative / Field Volunteer",

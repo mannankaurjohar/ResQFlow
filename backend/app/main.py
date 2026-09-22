@@ -8,7 +8,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.seed_data import seed_all_data
 from app.routers.public_data_router import router as public_data_router
-
+from fastapi.staticfiles import StaticFiles
 # Import routers
 from app.routers import (
     auth_router, requests_router, inventory_router, donations_router,
@@ -43,7 +43,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
-
+app.mount(
+    "/uploads",
+    StaticFiles(directory="uploads"),
+    name="uploads"
+)
 # CORS Configuration
 # CORS Configuration
 app.add_middleware(
