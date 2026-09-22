@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+import os
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.routers.official_warehouses_router import (
@@ -43,6 +44,7 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+os.makedirs("uploads", exist_ok=True)
 app.mount(
     "/uploads",
     StaticFiles(directory="uploads"),
