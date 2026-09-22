@@ -10,9 +10,425 @@ from app.models import (
     DisasterType,
     AffectedZone,
     SeverityLevel,
+    Warehouse,
+    Inventory,
+    OfficialWarehouse,
 )
 from app.auth import get_password_hash
+def seed_nashik_warehouse_data(db: Session):
+    """
+    Seed the verified Nashik MSWC warehouse dataset.
 
+    This is idempotent:
+    - existing records are preserved
+    - records are inserted only when the corresponding
+      tables are empty
+    """
+
+    # ---------------------------------------------------------
+    # 1. Official MSWC warehouse records
+    # ---------------------------------------------------------
+
+    if db.query(OfficialWarehouse).count() == 0:
+
+        official_warehouses = [
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1427",
+                warehouse_name="Ambad",
+                district="Nashik",
+                taluka="Nashik",
+                address="MSWC, MIDC Area, Ambad, A/P Ambad, Tal. Nashik, Dist. Nashik 431204",
+                godown_count=2,
+                capacity_mt=2480.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1416",
+                warehouse_name="Kalwan",
+                district="Nashik",
+                taluka="Kalwan",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Kalwan, A/P Kalwan, Tal. Kalwan, Dist. Nashik 423501",
+                godown_count=3,
+                capacity_mt=3500.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1417",
+                warehouse_name="Lasalgaon",
+                district="Nashik",
+                taluka="Niphad",
+                address="MSWC, Kotamgaon Road, Near Onion Market, Lasalgaon, A/P Lasalgaon, Tal. Niphad, Dist. Nashik 422306",
+                godown_count=4,
+                capacity_mt=4000.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1418",
+                warehouse_name="Malegaon (N)",
+                district="Nashik",
+                taluka="Malegaon",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Camp Road, Malegaon(N), A/P Malegaon (N), Tal. Malegaon, Dist.Nashik 423105",
+                godown_count=6,
+                capacity_mt=8420.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1419",
+                warehouse_name="Manmad",
+                district="Nashik",
+                taluka="Nandgaon",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Chandwad Road, Manmad, A/P Manmad, Tal. Nandgaon, Dist. Nashik 423104",
+                godown_count=6,
+                capacity_mt=11500.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1430",
+                warehouse_name="Musalgaon",
+                district="Nashik",
+                taluka="Sinnar",
+                address="MSWC, Survey No. 142/2, Musalgaon MIDC Area, Musalgaon, A/P Musalgaon, Tal. Sinnar, Dist. Nashik 422112",
+                godown_count=1,
+                capacity_mt=3000.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1420",
+                warehouse_name="Nampur",
+                district="Nashik",
+                taluka="Satana (Baglan)",
+                address="MSWC, Market Yard, Nampur, A/P Nampur, Tal. Satana (Baglan), Dist. Nashik 423204",
+                godown_count=2,
+                capacity_mt=2000.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1426",
+                warehouse_name="Nandgaon",
+                district="Nashik",
+                taluka="Nandgaon",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Nandgaon, A/P Nandgaon, Tal. Nandgaon, Dist. Nashik 423106",
+                godown_count=1,
+                capacity_mt=1580.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1421",
+                warehouse_name="Ozar",
+                district="Nashik",
+                taluka="Niphad",
+                address="MSWC, Mumbai-Agra National Highway, Dahawa Mail, Ozar, A/P Ozar, Tal. Niphad, Dist. Nashik 422206",
+                godown_count=6,
+                capacity_mt=7615.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1422",
+                warehouse_name="Satana",
+                district="Nashik",
+                taluka="Satana (Baglan)",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard,Satana, A/P Satana, Tal. Satana (Baglan), Dist. Nashik 423301",
+                godown_count=3,
+                capacity_mt=5200.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1425",
+                warehouse_name="Sinner",
+                district="Nashik",
+                taluka="Sinnar",
+                address="MSWC, MIDC Area Plot No E, Malegaon, Sinner, A/P Sinner,Tal. Sinnar, Dist. Nashik 422213",
+                godown_count=4,
+                capacity_mt=7140.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+            OfficialWarehouse(
+                organization_name="Maharashtra State Warehousing Corporation",
+                plant_code="1423",
+                warehouse_name="Wani (N)",
+                district="Nashik",
+                taluka="Dindori",
+                address="MSWC, Mulane Road, Wani, A/P Wani (N), Tal. Dindori, Dist. Nashik 422215",
+                godown_count=2,
+                capacity_mt=2000.0,
+                latitude=None,
+                longitude=None,
+                location_status="PENDING_COORDINATE_VERIFICATION",
+                inventory_status="NOT_REPORTED",
+                source="https://mswarehousing.com/MSwhs/all-districts-list/",
+            ),
+        ]
+
+        db.add_all(official_warehouses)
+        db.flush()
+
+        print("Seeded 12 official Nashik MSWC warehouses.")
+
+    # ---------------------------------------------------------
+    # 2. Operational warehouse records
+    # ---------------------------------------------------------
+
+    if db.query(Warehouse).count() == 0:
+
+        warehouses = [
+            Warehouse(
+                name="Ambad",
+                code="1427",
+                address="MSWC, MIDC Area, Ambad, A/P Ambad, Tal. Nashik, Dist. Nashik 431204",
+                latitude=19.9442,
+                longitude=73.7231,
+                capacity_sqm=24800.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Kalwan",
+                code="1416",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Kalwan, A/P Kalwan, Tal. Kalwan, Dist. Nashik 423501",
+                latitude=20.4923,
+                longitude=74.0260,
+                capacity_sqm=35000.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Lasalgaon",
+                code="1417",
+                address="MSWC, Kotamgaon Road, Near Onion Market, Lasalgaon, A/P Lasalgaon, Tal. Niphad, Dist. Nashik 422306",
+                latitude=20.1427,
+                longitude=74.2395,
+                capacity_sqm=40000.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Malegaon (N)",
+                code="1418",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Camp Road, Malegaon(N), A/P Malegaon (N), Tal. Malegaon, Dist.Nashik 423105",
+                latitude=20.5497,
+                longitude=74.5346,
+                capacity_sqm=84200.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Manmad",
+                code="1419",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Chandwad Road, Manmad, A/P Manmad, Tal. Nandgaon, Dist. Nashik 423104",
+                latitude=20.2533,
+                longitude=74.4376,
+                capacity_sqm=115000.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Musalgaon",
+                code="1430",
+                address="MSWC, Survey No. 142/2, Musalgaon MIDC Area, Musalgaon, A/P Musalgaon, Tal. Sinnar, Dist. Nashik 422112",
+                latitude=19.8347,
+                longitude=74.0536,
+                capacity_sqm=30000.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Nampur",
+                code="1420",
+                address="MSWC, Market Yard, Nampur, A/P Nampur, Tal. Satana (Baglan), Dist. Nashik 423204",
+                latitude=20.5280,
+                longitude=74.2120,
+                capacity_sqm=20000.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Nandgaon",
+                code="1426",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Nandgaon, A/P Nandgaon, Tal. Nandgaon, Dist. Nashik 423106",
+                latitude=20.3030,
+                longitude=74.6550,
+                capacity_sqm=15800.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Ozar",
+                code="1421",
+                address="MSWC, Mumbai-Agra National Highway, Dahawa Mail, Ozar, A/P Ozar, Tal. Niphad, Dist. Nashik 422206",
+                latitude=20.0870,
+                longitude=73.9300,
+                capacity_sqm=76150.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Satana",
+                code="1422",
+                address="MSWC, Krushi Utpanna Bazar Samiti, Market Yard, Satana, A/P Satana, Tal. Satana (Baglan), Dist. Nashik 423301",
+                latitude=20.5940,
+                longitude=74.2050,
+                capacity_sqm=52000.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Sinner",
+                code="1425",
+                address="MSWC, MIDC Area Plot No E, Malegaon, Sinner, A/P Sinner, Tal. Sinnar, Dist. Nashik 422213",
+                latitude=19.8450,
+                longitude=73.9980,
+                capacity_sqm=71400.0,
+                is_active=True,
+            ),
+            Warehouse(
+                name="Wani (N)",
+                code="1423",
+                address="MSWC, Mulane Road, Wani, A/P Wani (N), Tal. Dindori, Dist. Nashik 422215",
+                latitude=20.1860,
+                longitude=73.8280,
+                capacity_sqm=20000.0,
+                is_active=True,
+            ),
+        ]
+
+        db.add_all(warehouses)
+        db.flush()
+
+        print("Seeded 12 operational Nashik warehouses.")
+
+    # ---------------------------------------------------------
+    # 3. Inventory
+    # ---------------------------------------------------------
+
+    if db.query(Inventory).count() == 0:
+
+        inventory_data = [
+            (1, "Drinking Water", "Clean Drinking Water", "Liters", 6471.0, 0.0, 12.0, 6459.0, 1000.0),
+            (1, "Food", "Ready-to-Eat Food Packets", "Packets", 1681.0, 0.0, 5.0, 1676.0, 300.0),
+            (1, "Medicines", "Emergency Medicine Kits", "Kits", 87.0, 0.0, 0.0, 87.0, 20.0),
+
+            (2, "Drinking Water", "Clean Drinking Water", "Liters", 2800.0, 0.0, 0.0, 2800.0, 1000.0),
+            (2, "Food", "Ready-to-Eat Food Packets", "Packets", 750.0, 0.0, 0.0, 750.0, 300.0),
+            (2, "Medicines", "Emergency Medicine Kits", "Kits", 32.0, 0.0, 0.0, 32.0, 20.0),
+
+            (3, "Drinking Water", "Clean Drinking Water", "Liters", 4600.0, 0.0, 13.0, 4587.0, 1000.0),
+            (3, "Food", "Ready-to-Eat Food Packets", "Packets", 1350.0, 0.0, 0.0, 1350.0, 300.0),
+            (3, "Medicines", "Emergency Medicine Kits", "Kits", 58.0, 0.0, 0.0, 58.0, 20.0),
+
+            (4, "Drinking Water", "Clean Drinking Water", "Liters", 11500.0, 0.0, 1.0, 11499.0, 1000.0),
+            (4, "Food", "Ready-to-Eat Food Packets", "Packets", 3200.0, 0.0, 0.0, 3200.0, 300.0),
+            (4, "Medicines", "Emergency Medicine Kits", "Kits", 165.0, 0.0, 0.0, 165.0, 20.0),
+
+            (5, "Drinking Water", "Clean Drinking Water", "Liters", 7800.0, 0.0, 0.0, 7800.0, 1000.0),
+            (5, "Food", "Ready-to-Eat Food Packets", "Packets", 2150.0, 0.0, 0.0, 2150.0, 300.0),
+            (5, "Medicines", "Emergency Medicine Kits", "Kits", 110.0, 0.0, 0.0, 110.0, 20.0),
+
+            (6, "Drinking Water", "Clean Drinking Water", "Liters", 5200.0, 0.0, 0.0, 5200.0, 1000.0),
+            (6, "Food", "Ready-to-Eat Food Packets", "Packets", 1450.0, 0.0, 0.0, 1450.0, 300.0),
+            (6, "Medicines", "Emergency Medicine Kits", "Kits", 72.0, 0.0, 0.0, 72.0, 20.0),
+
+            (7, "Drinking Water", "Clean Drinking Water", "Liters", 2100.0, 0.0, 0.0, 2100.0, 1000.0),
+            (7, "Food", "Ready-to-Eat Food Packets", "Packets", 620.0, 0.0, 0.0, 620.0, 300.0),
+            (7, "Medicines", "Emergency Medicine Kits", "Kits", 28.0, 0.0, 0.0, 28.0, 20.0),
+
+            (8, "Drinking Water", "Clean Drinking Water", "Liters", 3400.0, 0.0, 0.0, 3400.0, 1000.0),
+            (8, "Food", "Ready-to-Eat Food Packets", "Packets", 900.0, 0.0, 0.0, 900.0, 300.0),
+            (8, "Medicines", "Emergency Medicine Kits", "Kits", 41.0, 0.0, 0.0, 41.0, 20.0),
+
+            (9, "Drinking Water", "Clean Drinking Water", "Liters", 6672.0, 0.0, 0.0, 6672.0, 1000.0),
+            (9, "Food", "Ready-to-Eat Food Packets", "Packets", 1830.0, 0.0, 0.0, 1830.0, 300.0),
+            (9, "Medicines", "Emergency Medicine Kits", "Kits", 64.0, 0.0, 0.0, 64.0, 20.0),
+
+            (10, "Drinking Water", "Clean Drinking Water", "Liters", 4100.0, 0.0, 0.0, 4100.0, 1000.0),
+            (10, "Food", "Ready-to-Eat Food Packets", "Packets", 1100.0, 0.0, 0.0, 1100.0, 300.0),
+            (10, "Medicines", "Emergency Medicine Kits", "Kits", 53.0, 0.0, 0.0, 53.0, 20.0),
+
+            (11, "Drinking Water", "Clean Drinking Water", "Liters", 7200.0, 0.0, 0.0, 7200.0, 1000.0),
+            (11, "Food", "Ready-to-Eat Food Packets", "Packets", 2000.0, 0.0, 0.0, 2000.0, 300.0),
+            (11, "Medicines", "Emergency Medicine Kits", "Kits", 96.0, 0.0, 0.0, 96.0, 20.0),
+
+            (12, "Drinking Water", "Clean Drinking Water", "Liters", 2500.0, 0.0, 0.0, 2500.0, 1000.0),
+            (12, "Food", "Ready-to-Eat Food Packets", "Packets", 680.0, 0.0, 0.0, 680.0, 300.0),
+            (12, "Medicines", "Emergency Medicine Kits", "Kits", 31.0, 0.0, 0.0, 31.0, 20.0),
+        ]
+
+        for (
+            warehouse_id,
+            category,
+            item_name,
+            unit,
+            total_quantity,
+            reserved_quantity,
+            allocated_quantity,
+            available_quantity,
+            min_threshold,
+        ) in inventory_data:
+
+            db.add(
+                Inventory(
+                    warehouse_id=warehouse_id,
+                    category=category,
+                    item_name=item_name,
+                    unit=unit,
+                    total_quantity=total_quantity,
+                    reserved_quantity=reserved_quantity,
+                    allocated_quantity=allocated_quantity,
+                    available_quantity=available_quantity,
+                    min_threshold=min_threshold,
+                    status="AVAILABLE",
+                    verification_status="VERIFIED",
+                    verification_source="PROTOTYPE_SEED_DATA",
+                )
+            )
+
+        db.flush()
+
+        print("Seeded 36 Nashik warehouse inventory records.")
 
 def seed_all_data(db: Session, force_reset: bool = False):
     """
@@ -37,7 +453,10 @@ def seed_all_data(db: Session, force_reset: bool = False):
     # ---------------------------------------------------------
 
     if db.query(User).first() and not force_reset:
-        print("Database already contains data, skipping seed.")
+        seed_nashik_warehouse_data(db)
+        db.commit()
+
+        print("Database already contains core data; verified warehouse data checked.")
         return
 
     print("Initializing ResQFlow AI with disaster-map data only...")
@@ -381,6 +800,12 @@ def seed_all_data(db: Session, force_reset: bool = False):
     # ---------------------------------------------------------
 
     # No initial fake audit events seeded.
+
+        # ---------------------------------------------------------
+    # Verified Nashik warehouse + inventory data
+    # ---------------------------------------------------------
+
+    seed_nashik_warehouse_data(db)
 
     # ---------------------------------------------------------
     # Commit
