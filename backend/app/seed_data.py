@@ -13,6 +13,7 @@ from app.models import (
     Warehouse,
     Inventory,
     OfficialWarehouse,
+    Vehicle,
 )
 from app.auth import get_password_hash
 def seed_nashik_warehouse_data(db: Session):
@@ -429,7 +430,60 @@ def seed_nashik_warehouse_data(db: Session):
         db.flush()
 
         print("Seeded 36 Nashik warehouse inventory records.")
+    # ---------------------------------------------------------
+    # 5. Nashik prototype response vehicles
+    # ---------------------------------------------------------
+    #
+    # These vehicles support the prototype dispatch workflow.
+    # Seed only when the vehicle table is empty so records are
+    # not duplicated on restart/deployment.
+    # ---------------------------------------------------------
 
+    if db.query(Vehicle).count() == 0:
+
+        vehicles = [
+            Vehicle(
+                code="LOG-NK-001",
+                vehicle_type="Relief Cargo Vehicle",
+                capacity_kg=3500.0,
+                status="IN_USE",
+            ),
+            Vehicle(
+                code="LOG-NK-002",
+                vehicle_type="Relief Cargo Vehicle",
+                capacity_kg=3500.0,
+                status="AVAILABLE",
+            ),
+            Vehicle(
+                code="LOG-NK-003",
+                vehicle_type="4x4 Utility Vehicle",
+                capacity_kg=1200.0,
+                status="AVAILABLE",
+            ),
+            Vehicle(
+                code="LOG-NK-004",
+                vehicle_type="Rescue Boat",
+                capacity_kg=850.0,
+                status="AVAILABLE",
+            ),
+            Vehicle(
+                code="LOG-NK-005",
+                vehicle_type="Rescue Boat",
+                capacity_kg=850.0,
+                status="AVAILABLE",
+            ),
+            Vehicle(
+                code="LOG-NK-006",
+                vehicle_type="Mini Fire Rescue Tender",
+                capacity_kg=1500.0,
+                status="AVAILABLE",
+            ),
+        ]
+
+        db.add_all(vehicles)
+        db.flush()
+
+        print("Seeded 6 Nashik response vehicles.")
 def seed_all_data(db: Session, force_reset: bool = False):
     """
     Initialize only the data required for:
