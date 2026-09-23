@@ -10,7 +10,9 @@ import {
   AuditLog,
   User
 } from '../types';
-
+export const API_BASE =
+  import.meta.env.VITE_API_URL ||
+  'http://127.0.0.1:8000/api';
 export interface MatchedFacility {
   osm_id: number;
   osm_type: string;
@@ -67,9 +69,7 @@ export interface OfficialWarehouse {
   source: string;
   source_verified_at: string | null;
 }
-const API_BASE =
-  import.meta.env.VITE_API_URL ||
-  'http://127.0.0.1:8000/api';
+
 
 const api = {
   // ============================================================

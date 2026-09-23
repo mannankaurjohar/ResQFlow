@@ -5,6 +5,7 @@ import { GisMap } from '../components/GisMap';
 import { StatusBadge } from '../components/StatusBadge';
 import { CommunityRequest, AnalyticsData } from '../types';
 import api, {
+  API_BASE,
   PublicFacility,
   OfficialWarehouse
 } from '../services/api';
@@ -311,7 +312,7 @@ const handleProofPhotoUpload = async (
     formData.append('file', file);
 
     const response = await fetch(
-      'http://127.0.0.1:8000/api/deliveries/upload-proof-photo',
+      `${API_BASE}/deliveries/upload-proof-photo`,
       {
         method: 'POST',
         body: formData
