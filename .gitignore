@@ -15,7 +15,7 @@ env/
 
 # Runtime/generated files
 backend/uploads/
-backend/app/facility_cache.json
+
 
 # Environment/secrets
 .env

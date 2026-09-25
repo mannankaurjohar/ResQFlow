@@ -30,10 +30,20 @@ OVERPASS_URLS = [
 # CACHE
 # ============================================================
 
-# Results are cached for 5 minutes in memory.
+# Freshness window for facility data.
+# Cached data older than this is still usable, but will be
+# refreshed in the background when possible.
 CACHE_TTL_SECONDS = 300
 
+# Maximum age of cached data that can still be served immediately.
+# This prevents the first request after a Render restart from
+# waiting for Overpass.
+STALE_CACHE_MAX_AGE_SECONDS = 24 * 60 * 60  # 24 hours
+
 FACILITY_CACHE = {}
+
+# Prevent multiple requests from triggering the same Overpass refresh.
+FACILITY_REFRESH_TASKS = {}
 
 DISK_CACHE_FILE = (
     Path(__file__).resolve().parent.parent
@@ -101,6 +111,26 @@ def get_cached_facilities(cache_key):
 
     return cached_data
 
+def get_stale_memory_facilities(cache_key):
+    """
+    Return cached facility data even if it is older than the
+    normal freshness TTL, provided it is not older than the
+    maximum allowed stale-cache age.
+    """
+
+    cached = FACILITY_CACHE.get(cache_key)
+
+    if not cached:
+        return None
+
+    cached_time, cached_data = cached
+
+    age = time.monotonic() - cached_time
+
+    if age > STALE_CACHE_MAX_AGE_SECONDS:
+        return None
+
+    return cached_data
 
 def set_cached_facilities(
     cache_key,
@@ -233,15 +263,13 @@ def load_disk_cache(
         ):
             return None
 
-        # ----------------------------------------------------
-        # CHECK DISK CACHE EXPIRATION
+                # ----------------------------------------------------
+        # CHECK MAXIMUM DISK CACHE AGE
         # ----------------------------------------------------
 
-        if (
-            time.time() - cached_at
-            > CACHE_TTL_SECONDS
-        ):
+        cache_age = time.time() - cached_at
 
+        if cache_age > STALE_CACHE_MAX_AGE_SECONDS:
             return None
 
         return cached_data
@@ -547,7 +575,232 @@ async def fetch_overpass_parallel(
 
                     task.cancel()
 
+async def refresh_facilities_in_background(
+    cache_key,
+    selected_type,
+    selected_region,
+    latitude,
+    longitude,
+    radius_m,
+):
+    """
+    Refresh facility data from Overpass without making the
+    user wait when stale cached data is already available.
+    """
 
+    # Prevent duplicate refresh requests for the same cache key.
+    existing_task = FACILITY_REFRESH_TASKS.get(cache_key)
+
+    if existing_task is not None and not existing_task.done():
+        return
+
+    async def _refresh():
+        try:
+            print(
+                "Background facility refresh started:",
+                cache_key,
+            )
+
+            query = build_facility_query(
+                facility_type=selected_type,
+                region=selected_region,
+                latitude=latitude,
+                longitude=longitude,
+                radius_m=radius_m,
+            )
+
+            headers = {
+                "User-Agent": (
+                    "ResQFlow-AI/1.0 "
+                    "(emergency-relief-platform)"
+                ),
+                "Referer": "http://localhost:8000/",
+                "Accept": "application/json",
+            }
+
+            response = await fetch_overpass_parallel(
+                query=query,
+                headers=headers,
+            )
+
+            if response is None:
+                print(
+                    "Background facility refresh failed: "
+                    "all Overpass services unavailable."
+                )
+                return
+
+            try:
+                data = response.json()
+            except ValueError:
+                print(
+                    "Background facility refresh failed: "
+                    "invalid Overpass response."
+                )
+                return
+
+            facilities = []
+            seen = set()
+
+            for element in data.get("elements", []):
+                osm_id = element.get("id")
+                osm_type = element.get("type")
+
+                unique_key = f"{osm_type}-{osm_id}"
+
+                if unique_key in seen:
+                    continue
+
+                seen.add(unique_key)
+
+                tags = element.get("tags", {})
+
+                element_lat = element.get("lat")
+                element_lon = element.get("lon")
+
+                if (
+                    element_lat is None
+                    or element_lon is None
+                ):
+                    center = element.get("center", {})
+
+                    element_lat = center.get("lat")
+                    element_lon = center.get("lon")
+
+                if (
+                    element_lat is None
+                    or element_lon is None
+                ):
+                    continue
+
+                amenity = tags.get(
+                    "amenity",
+                    "Not reported",
+                )
+
+                facility_name = (
+                    tags.get("name")
+                    or "Not reported"
+                )
+
+                address_parts = [
+                    tags.get("addr:housenumber"),
+                    tags.get("addr:street"),
+                    tags.get("addr:suburb"),
+                    tags.get("addr:city"),
+                    tags.get("addr:district"),
+                    tags.get("addr:state"),
+                ]
+
+                address_parts = [
+                    part
+                    for part in address_parts
+                    if part
+                ]
+
+                address = (
+                    ", ".join(address_parts)
+                    if address_parts
+                    else "Not reported"
+                )
+
+                facilities.append(
+                    {
+                        "osm_id": osm_id,
+                        "osm_type": osm_type,
+                        "name": facility_name,
+                        "facility_type": TYPE_MAPPING.get(
+                            amenity,
+                            (
+                                amenity
+                                .replace("_", " ")
+                                .title()
+                                if amenity != "Not reported"
+                                else "Not reported"
+                            ),
+                        ),
+                        "latitude": element_lat,
+                        "longitude": element_lon,
+                        "address": address,
+                        "phone": tags.get(
+                            "phone",
+                            "Not reported",
+                        ),
+                        "website": tags.get(
+                            "website",
+                            "Not reported",
+                        ),
+                        "source": "OpenStreetMap",
+                        "source_url": (
+                            "https://www.openstreetmap.org/"
+                            f"{osm_type}/{osm_id}"
+                        ),
+                        "live_inventory": "Not reported",
+                        "operational_status": "Not reported",
+                    }
+                )
+
+            facilities.sort(
+                key=lambda item: (
+                    item["facility_type"],
+                    item["name"],
+                )
+            )
+
+            result = {
+                "source": "OpenStreetMap",
+                "source_url": (
+                    "https://www.openstreetmap.org/"
+                ),
+                "region": (
+                    "Nashik District"
+                    if selected_region == "nashik"
+                    else "Radius Search"
+                ),
+                "search_mode": (
+                    "district"
+                    if selected_region == "nashik"
+                    else "radius"
+                ),
+                "center": {
+                    "latitude": latitude,
+                    "longitude": longitude,
+                },
+                "radius_m": (
+                    None
+                    if selected_region == "nashik"
+                    else radius_m
+                ),
+                "facility_type": selected_type,
+                "facility_count": len(facilities),
+                "facilities": facilities,
+            }
+
+            set_cached_facilities(
+                cache_key,
+                result,
+            )
+
+            print(
+                "Background facility refresh completed: "
+                f"{len(facilities)} facilities"
+            )
+
+        except Exception as exc:
+            print(
+                "Background facility refresh failed: "
+                f"{exc}"
+            )
+
+        finally:
+            FACILITY_REFRESH_TASKS.pop(
+                cache_key,
+                None,
+            )
+
+    task = asyncio.create_task(_refresh())
+
+    FACILITY_REFRESH_TASKS[cache_key] = task
 # ============================================================
 # PUBLIC FACILITIES ENDPOINT
 # ============================================================
@@ -674,9 +927,126 @@ async def get_public_facilities(
         cache_key,
     )
 
-    # ========================================================
+        # ========================================================
     # MEMORY CACHE CHECK
     # ========================================================
+
+    cached_result = get_cached_facilities(
+        cache_key
+    )
+
+    if cached_result is not None:
+
+        print(
+            "Returning memory-cached public facilities: "
+            f"{len(cached_result.get('facilities', []))} "
+            "facilities"
+        )
+
+        return cached_result
+
+    # ========================================================
+    # STALE MEMORY CACHE CHECK
+    # ========================================================
+
+    stale_memory_result = get_stale_memory_facilities(
+        cache_key
+    )
+
+    if stale_memory_result is not None:
+
+        print(
+            "Returning stale memory-cached public facilities "
+            "and refreshing in background."
+        )
+
+        asyncio.create_task(
+            refresh_facilities_in_background(
+                cache_key=cache_key,
+                selected_type=selected_type,
+                selected_region=selected_region,
+                latitude=latitude,
+                longitude=longitude,
+                radius_m=radius_m,
+            )
+        )
+
+        return stale_memory_result
+
+    # ========================================================
+    # DISK CACHE CHECK
+    # ========================================================
+
+    disk_result = load_disk_cache(
+        cache_key
+    )
+
+    if disk_result is not None:
+
+        print(
+            "Returning disk-cached public facilities: "
+            f"{len(disk_result.get('facilities', []))} "
+            "facilities"
+        )
+
+        # Restore disk result into memory cache.
+        FACILITY_CACHE[cache_key] = (
+            time.monotonic(),
+            disk_result,
+        )
+
+        # If the disk cache is older than the normal
+        # freshness window, refresh it in the background.
+        disk_cache_age = 0
+
+        try:
+            with open(
+                DISK_CACHE_FILE,
+                "r",
+                encoding="utf-8",
+            ) as f:
+                disk_cache_data = json.load(f)
+
+            cache_key_string = cache_key_to_string(
+                cache_key
+            )
+
+            cached_entry = disk_cache_data.get(
+                cache_key_string
+            )
+
+            if cached_entry:
+                cached_at = cached_entry.get(
+                    "cached_at"
+                )
+
+                if cached_at:
+                    disk_cache_age = (
+                        time.time() - cached_at
+                    )
+
+        except Exception:
+            disk_cache_age = 0
+
+        if disk_cache_age > CACHE_TTL_SECONDS:
+
+            print(
+                "Disk cache is stale. "
+                "Refreshing in background."
+            )
+
+            asyncio.create_task(
+                refresh_facilities_in_background(
+                    cache_key=cache_key,
+                    selected_type=selected_type,
+                    selected_region=selected_region,
+                    latitude=latitude,
+                    longitude=longitude,
+                    radius_m=radius_m,
+                )
+            )
+
+        return disk_result
 
     cached_result = get_cached_facilities(
         cache_key
