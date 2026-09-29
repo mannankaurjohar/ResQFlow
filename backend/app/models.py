@@ -126,8 +126,8 @@ class CommunityRequest(Base):
     reporter_phone = Column(String(50), nullable=True)
     reporter_role = Column(String(50), default="Citizen")
     location_name = Column(String(150), nullable=False)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
     affected_people = Column(Integer, default=1)
     affected_households = Column(Integer, default=1)
     vulnerable_elderly = Column(Integer, default=0)
@@ -146,6 +146,22 @@ class CommunityRequest(Base):
     override_by = Column(String(100), nullable=True)
     
     status = Column(SQLEnum(RequestStatus), default=RequestStatus.PENDING, nullable=False)
+    # Citizen Mobile App & Communication Integration Fields
+    request_type = Column(String(50), default="EVACUATION", nullable=True) # EVACUATION, SUPPLIES, COMMUNITY_REPORT
+    communication_method = Column(String(50), default="INTERNET", nullable=True) # INTERNET, SMS, SATELLITE, OFFLINE
+    communication_status = Column(String(50), default="RECEIVED", nullable=True) # PENDING, SENDING, SENT, RECEIVED, DELIVERED, SYNCED, FAILED
+    location_accuracy = Column(Float, nullable=True)
+    medical_emergency = Column(Boolean, default=False, nullable=True)
+    medical_conditions_json = Column(Text, nullable=True)
+    immediate_danger = Column(String(50), nullable=True) # YES, NO, NOT_SURE
+    danger_details_json = Column(Text, nullable=True)
+    situation_flags_json = Column(Text, nullable=True)
+    location_type = Column(String(50), nullable=True)
+    rescuer_access = Column(String(50), nullable=True)
+    access_problem_json = Column(Text, nullable=True)
+    accessibility_json = Column(Text, nullable=True)
+    photo_url = Column(String(255), nullable=True)
+    idempotency_key = Column(String(100), unique=True, index=True, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(IST))
     updated_at = Column(DateTime, default=lambda: datetime.now(IST), onupdate=lambda: datetime.now(IST))
 

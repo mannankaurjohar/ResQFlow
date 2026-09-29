@@ -423,8 +423,22 @@ const handleCompleteDelivery = async () => {
   }
 };
   useEffect(() => {
-    loadAll();
-  }, [isEscalated]);
+  loadAll();
+
+  const interval = window.setInterval(() => {
+    api.getRequests()
+      .then(reqData => {
+        setRequests(reqData);
+      })
+      .catch(err => {
+        console.error('Failed to refresh requests:', err);
+      });
+  }, 10000);
+
+  return () => {
+    window.clearInterval(interval);
+  };
+}, [isEscalated]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 pb-12">
@@ -1432,12 +1446,35 @@ const handleCompleteDelivery = async () => {
 
                         <td className="py-3 px-3">
 
-                          <div className="font-bold text-navy">
-                            {req.location_name}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-navy">
+                              {req.location_name}
+                            </span>
+                            {req.request_type && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-navy/10 text-navy">
+                                {req.request_type}
+                              </span>
+                            )}
+                            {req.medical_emergency && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-700">
+                                🚨 MEDICAL
+                              </span>
+                            )}
                           </div>
 
-                          <div className="text-[10px] font-mono text-slate">
-                            {req.tracking_code}
+                          <div className="flex items-center gap-2 text-[10px] font-mono text-slate mt-0.5">
+                            <span>{req.tracking_code}</span>
+                            {req.communication_method && (
+                              <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                                req.communication_method === 'SATELLITE'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : req.communication_method === 'SMS'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                              }`}>
+                                {req.communication_method}
+                              </span>
+                            )}
                           </div>
 
                         </td>

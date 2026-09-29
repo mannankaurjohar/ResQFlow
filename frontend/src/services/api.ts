@@ -280,6 +280,18 @@ async getOfficialWarehouses(
     return res.json();
   },
 
+  async submitInboundSms(payload: { sender?: string; message: string }): Promise<CommunityRequest> {
+    const res = await fetch(API_BASE + '/requests/sms-inbound', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      throw new Error('Failed to ingest SMS packet');
+    }
+    return res.json();
+  },
+
   async createRequest(
     data: any
   ): Promise<CommunityRequest> {

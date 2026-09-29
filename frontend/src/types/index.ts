@@ -102,6 +102,12 @@ export interface CommunityRequest {
   authority_override_score?: number;
   override_reason?: string;
   status: RequestStatus;
+  request_type?: string;
+  communication_method?: string;
+  communication_status?: string;
+  location_accuracy?: number;
+  medical_emergency?: boolean;
+  immediate_danger?: string;
   created_at: string;
   items: RequestItem[];
   verifications: RequestVerification[];

@@ -131,8 +131,8 @@ class CommunityRequestResponse(BaseModel):
     reporter_phone: Optional[str] = None
     reporter_role: Optional[str] = None
     location_name: str
-    latitude: float
-    longitude: float
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     affected_people: int
     affected_households: int
     vulnerable_elderly: int
@@ -146,12 +146,81 @@ class CommunityRequestResponse(BaseModel):
     authority_override_score: Optional[float] = None
     override_reason: Optional[str] = None
     status: RequestStatus
+    request_type: Optional[str] = "EVACUATION"
+    communication_method: Optional[str] = "INTERNET"
+    communication_status: Optional[str] = "RECEIVED"
+    location_accuracy: Optional[float] = None
+    medical_emergency: Optional[bool] = False
+    medical_conditions_json: Optional[str] = None
+    immediate_danger: Optional[str] = None
+    danger_details_json: Optional[str] = None
+    situation_flags_json: Optional[str] = None
+    location_type: Optional[str] = None
+    rescuer_access: Optional[str] = None
+    access_problem_json: Optional[str] = None
+    accessibility_json: Optional[str] = None
+    photo_url: Optional[str] = None
+    idempotency_key: Optional[str] = None
     created_at: datetime.datetime
     items: List[RequestItemResponse] = []
     verifications: List[VerificationResponse] = []
 
     class Config:
         from_attributes = True
+
+# Citizen Emergency Ingestion Schemas
+class CitizenItemPayload(BaseModel):
+    category: str = "Rescue"
+    item_name: str
+    requested_quantity: float = 1.0
+    unit: str = "Units"
+
+class CitizenEmergencyRequestCreate(BaseModel):
+    idempotency_key: Optional[str] = None
+    tracking_code: Optional[str] = None
+    request_type: str = "EVACUATION" # EVACUATION, SUPPLIES
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    location_accuracy: Optional[float] = None
+    location_name: Optional[str] = None
+    affected_people: int = 1
+    adults: Optional[int] = None
+    children: Optional[int] = None
+    elderly: Optional[int] = None
+    mobility_assistance: Optional[int] = None
+    situation_flags: List[str] = []
+    situation_other: Optional[str] = None
+    medical_emergency: bool = False
+    medical_conditions: List[str] = []
+    medical_other: Optional[str] = None
+    immediate_danger: Optional[str] = "NOT_SURE" # YES, NO, NOT_SURE
+    danger_details: List[str] = []
+    danger_other: Optional[str] = None
+    location_type: Optional[str] = None
+    accessibility_requirements: List[str] = []
+    rescuer_access: Optional[str] = "NOT_SURE"
+    access_problems: List[str] = []
+    access_other: Optional[str] = None
+    additional_information: Optional[str] = None
+    photo_url: Optional[str] = None
+    communication_method: str = "INTERNET" # INTERNET, SMS, SATELLITE, OFFLINE
+    communication_status: str = "SENT"
+    items: Optional[List[CitizenItemPayload]] = None
+
+class CitizenRequestSyncPayload(BaseModel):
+    requests: List[CitizenEmergencyRequestCreate]
+
+class CitizenSyncResponseItem(BaseModel):
+    tracking_code: str
+    status: str
+    message: str
+    received_at: datetime.datetime
+    communication_method: str
+    communication_status: str
+
+class CitizenSyncResponse(BaseModel):
+    synced_count: int
+    results: List[CitizenSyncResponseItem]
 
 # Inventory Schemas
 class InventoryBatchResponse(BaseModel):
