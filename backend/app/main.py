@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from sqlalchemy import text
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -22,11 +23,47 @@ async def lifespan(app: FastAPI):
     # Startup: Create tables & seed data
     print("ResQFlow AI Backend initializing...")
     Base.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        seed_all_data(db)
-    finally:
-        db.close()
+    if "sqlite" in settings.DATABASE_URL:
+        with engine.begin() as connection:
+            columns = {
+                row[1]
+                for row in connection.execute(
+                    text("PRAGMA table_info(community_requests)")
+                ).fetchall()
+            }
+
+            citizen_columns = {
+                "request_type": "VARCHAR(50) DEFAULT 'EVACUATION'",
+                "communication_method": "VARCHAR(50) DEFAULT 'INTERNET'",
+                "communication_status": "VARCHAR(50) DEFAULT 'RECEIVED'",
+                "location_accuracy": "FLOAT",
+                "medical_emergency": "BOOLEAN DEFAULT 0",
+                "medical_conditions_json": "TEXT",
+                "immediate_danger": "VARCHAR(50)",
+                "danger_details_json": "TEXT",
+                "situation_flags_json": "TEXT",
+                "location_type": "VARCHAR(50)",
+                "rescuer_access": "VARCHAR(50)",
+                "access_problem_json": "TEXT",
+                "accessibility_json": "TEXT",
+                "photo_url": "VARCHAR(255)",
+                "idempotency_key": "VARCHAR(100)",
+            }
+
+            for column_name, definition in citizen_columns.items():
+                if column_name not in columns:
+                    connection.execute(
+                        text(
+                            f"ALTER TABLE community_requests "
+                            f"ADD COLUMN {column_name} {definition}"
+                        )
+                    )
+                    print(f"Added citizen column: {column_name}")
+        db = SessionLocal()
+        try:
+            seed_all_data(db)
+        finally:
+            db.close()
     print("ResQFlow AI Backend is ready for emergency response.")
     yield
     # Shutdown

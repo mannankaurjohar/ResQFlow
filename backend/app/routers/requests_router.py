@@ -975,7 +975,11 @@ def receive_inbound_sms(
             latitude=lat,
             longitude=lon,
             location_accuracy=acc,
-            location_name=f"GPS ({lat:.5f}, {lon:.5f}) [SMS from {sender}]",
+            location_name=(
+                f"GPS ({lat:.5f}, {lon:.5f}) [SMS from {sender}]"
+                if lat is not None and lon is not None
+                else f"Location unavailable [SMS from {sender}]"
+            ),
             affected_people=people,
             situation_flags=situation_flags,
             medical_emergency=med_emergency,
