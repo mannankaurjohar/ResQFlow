@@ -1,4 +1,4 @@
-import {
+﻿import {
   AIUnderstandingResponse,
   CommunityRequest,
   ExplainPriorityResponse,
@@ -302,6 +302,7 @@ return data;
     email?: string;
     organization_id?: number;
     assigned_warehouse_id?: number;
+    unit_type?: string;
   }) {
     const res = await authenticatedFetch(
       API_BASE + '/auth/workers',
@@ -436,6 +437,7 @@ return data;
     params?: {
       status?: string;
       urgency?: string;
+      exclude_assigned?: boolean;
     }
   ): Promise<CommunityRequest[]> {
     let url =
@@ -443,6 +445,10 @@ return data;
 
     const query =
       new URLSearchParams();
+
+    if (params?.exclude_assigned) {
+      query.set('exclude_assigned', 'true');
+    }
 
     if (params?.status) {
       query.append(
@@ -480,6 +486,44 @@ return data;
 
   if (!res.ok) {
     let message = 'Failed to load your requests';
+
+    try {
+      const data = await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+},
+async assignResponseTask(
+  unitId: number,
+  requestId: number
+) {
+  const res = await authenticatedFetch(
+  `${API_BASE}/response-units/${unitId}/assign`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        request_id: requestId,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    let message = 'Failed to assign response task';
 
     try {
       const data = await res.json();
@@ -630,6 +674,30 @@ return data;
 
     return res.json();
   },
+async approveEvacuation(
+  requestId: number
+): Promise<CommunityRequest> {
+  const res = await authenticatedFetch(
+    API_BASE +
+      '/requests/' +
+      requestId +
+      '/approve-evacuation',
+    {
+      method: 'POST'
+    }
+  );
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      data?.detail ||
+      'Failed to approve evacuation'
+    );
+  }
+
+  return data;
+},
 
   // ============================================================
   // Allocations & Matching
@@ -1174,7 +1242,91 @@ getAvailableResponseUnits: async (): Promise<any[]> => {
 
   return res.json();
 },
+async trackResponseRequest(
+  requestRef: string | number
+): Promise<any> {
+  const response = await authenticatedFetch(
+    `${API_BASE}/response-units/track/${encodeURIComponent(String(requestRef).trim())}`
+  );
 
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+
+    throw new Error(
+      error.detail || "Unable to load response tracking"
+    );
+  }
+
+  return response.json();
+},
+async getMyResponseTasks() {
+  const res = await authenticatedFetch(
+  `${API_BASE}/response-units/my-tasks`
+);
+
+  if (!res.ok) {
+    let message = 'Failed to load response tasks';
+
+    try {
+      const data = await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+},
+async updateResponseTaskStatus(
+  assignmentId: number,
+  payload: {
+    status: string;
+    field_remarks?: string;
+    people_assisted?: number;
+    people_rescued?: number;
+    shelter_destination?: string;
+  }
+) {
+  const res = await authenticatedFetch(
+  `${API_BASE}/response-units/tasks/${assignmentId}/status`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    }
+  );
+
+  if (!res.ok) {
+    let message = 'Failed to update response task';
+
+    try {
+      const data = await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+},
   async verifyAuditIntegrity(): Promise<{
   total_records: number;
   is_chain_valid: boolean;
@@ -1212,3 +1364,4 @@ export default api;
  
  
  
+

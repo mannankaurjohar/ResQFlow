@@ -476,6 +476,7 @@ export const CommunityReportPage: React.FC = () => {
 
       const res =
         await api.createRequest({
+          request_type: 'SUPPLIES',
 
           location_name:
             locationName.trim(),

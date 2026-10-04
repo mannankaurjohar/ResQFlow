@@ -1,4 +1,4 @@
-import json
+﻿import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -12,6 +12,7 @@ from app.models import (
     User,
     RequestStatus,
     SeverityLevel,
+    ResponseAssignment,
 )
 from app.schemas import (
     CommunityRequestCreate,
@@ -72,6 +73,7 @@ def list_requests(
     status: Optional[str] = None,
     urgency: Optional[str] = None,
     zone_id: Optional[int] = None,
+    exclude_assigned: bool = False,
     db: Session = Depends(get_db)
 ):
     query = db.query(CommunityRequest)
@@ -91,6 +93,18 @@ def list_requests(
             CommunityRequest.zone_id == zone_id
         )
 
+    if exclude_assigned:
+        query = query.filter(
+            ~CommunityRequest.id.in_(
+                db.query(ResponseAssignment.request_id)
+                .filter(
+                    ResponseAssignment.status.notin_(
+                        ["COMPLETED", "CANCELLED"]
+                    )
+                )
+            )
+        )
+
     return (
         query
         .order_by(
@@ -98,7 +112,6 @@ def list_requests(
         )
         .all()
     )
-
 
 # ============================================================
 # CREATE COMMUNITY REQUEST
@@ -252,6 +265,8 @@ def create_request(
         raw_description=(
             request_in.raw_description.strip()
         ),
+
+        request_type=request_in.request_type or "SUPPLIES",
 
         status=RequestStatus.PENDING
     )
@@ -778,7 +793,7 @@ def _process_citizen_request(
         vulnerable_pregnant=0,
         urgency=urgency_level,
         raw_description=raw_description,
-        request_type=request_in.request_type or "EVACUATION",
+        request_type=request_in.request_type or "SUPPLIES",
         communication_method=request_in.communication_method or "INTERNET",
         communication_status="RECEIVED",
         medical_emergency=request_in.medical_emergency,
@@ -1031,3 +1046,67 @@ def receive_inbound_sms(
     )
     return _process_citizen_request(citizen_in, db)
 
+
+
+
+
+# ============================================================
+# APPROVE EVACUATION REQUEST
+# ============================================================
+
+@router.post(
+    "/{id}/approve-evacuation",
+    response_model=CommunityRequestResponse
+)
+def approve_evacuation(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    req = (
+        db.query(CommunityRequest)
+        .filter(CommunityRequest.id == id)
+        .first()
+    )
+
+    if not req:
+        raise HTTPException(
+            status_code=404,
+            detail="Request not found"
+        )
+
+    if req.request_type != "EVACUATION":
+        raise HTTPException(
+            status_code=400,
+            detail="Only evacuation requests can be approved here"
+        )
+
+    if req.status == RequestStatus.REJECTED:
+        raise HTTPException(
+            status_code=400,
+            detail="Rejected request cannot be approved"
+        )
+
+    req.status = RequestStatus.VERIFIED
+
+    db.commit()
+    db.refresh(req)
+
+    log_audit_event(
+        db=db,
+        actor_id=current_user.id,
+        actor_name=current_user.full_name,
+        actor_role=(
+            current_user.role.value
+            if hasattr(current_user.role, "value")
+            else str(current_user.role)
+        ),
+        action="APPROVE_EVACUATION",
+        entity_type="COMMUNITY_REQUEST",
+        entity_id=req.tracking_code,
+        previous_state="PENDING",
+        new_state="VERIFIED",
+        reason="Evacuation request approved by authority"
+    )
+
+    return req

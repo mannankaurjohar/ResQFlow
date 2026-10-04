@@ -234,12 +234,17 @@ def create_worker(
         email=str(email),
         full_name=worker_data.full_name.strip(),
         hashed_password=get_password_hash(temporary_password),
-        role=worker_data.role,
+        role=(
+    UserRole.RESPONSE_UNIT_OPERATOR
+    if worker_data.unit_type
+    else worker_data.role
+),
         organization_id=worker_data.organization_id,
         phone=worker_data.phone,
         assigned_warehouse_id=worker_data.assigned_warehouse_id,
         is_active=True,
-        password_reset_required=True
+        password_reset_required=True,
+        unit_type=worker_data.unit_type,
     )
 
     db.add(new_user)

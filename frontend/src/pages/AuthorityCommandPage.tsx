@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Box
 } from 'lucide-react';
+
 const getFacilityRole = (type: string) => {
   switch (type) {
     case 'Hospital':
@@ -54,156 +55,157 @@ const getFacilityRole = (type: string) => {
 };
 
 export const AuthorityCommandPage: React.FC = () => {
+
   const {
-  isEmergencyMode,
-  isEscalated,
-  triggerEscalation,
-  triggerReset,
-  setActivePriorityModalRequest,
-  setActiveMatchModalRequest,
-  setActiveTab,
-  showNotification
-} = useApp();
+    isEmergencyMode,
+    isEscalated,
+    triggerEscalation,
+    triggerReset,
+    setActivePriorityModalRequest,
+    setActiveMatchModalRequest,
+    showNotification,
+    setActiveTab
+  } = useApp();
 
   const [requests, setRequests] = useState<CommunityRequest[]>([]);
   const [shortages, setShortages] = useState<any[]>([]);
   const [analytics, setAnalytics] =
     useState<AnalyticsData | null>(null);
   const [facilities, setFacilities] =
-  useState<PublicFacility[]>([]);
+    useState<PublicFacility[]>([]);
 
-const [officialWarehouses, setOfficialWarehouses] =
-  useState<OfficialWarehouse[]>([]);
+  const [officialWarehouses, setOfficialWarehouses] =
+    useState<OfficialWarehouse[]>([]);
 
-const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [showFacilities, setShowFacilities] = useState(false);
   const [deliveries, setDeliveries] = useState<any[]>([]);
-const [deliveryLoading, setDeliveryLoading] = useState(false);
-const [deliveryActionId, setDeliveryActionId] = useState<number | null>(null);
-const [showCompleteDelivery, setShowCompleteDelivery] = useState(false);
-const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
+  const [deliveryLoading, setDeliveryLoading] = useState(false);
+  const [deliveryActionId, setDeliveryActionId] = useState<number | null>(null);
+  const [showCompleteDelivery, setShowCompleteDelivery] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
 
-const [proofPhoto, setProofPhoto] = useState<File | null>(null);
-const [proofPhotoUrl, setProofPhotoUrl] = useState('');
-const [recipientSignature, setRecipientSignature] = useState('');
-const [handoverNotes, setHandoverNotes] = useState('');
-const signatureRef = useRef<SignatureCanvas | null>(null);
+  const [proofPhoto, setProofPhoto] = useState<File | null>(null);
+  const [proofPhotoUrl, setProofPhotoUrl] = useState('');
+  const [recipientSignature, setRecipientSignature] = useState('');
+  const [handoverNotes, setHandoverNotes] = useState('');
+  const signatureRef = useRef<SignatureCanvas | null>(null);
 
-const loadAll = async () => {
-  setLoading(true);
+  const loadAll = async () => {
+    setLoading(true);
 
-  // Start public facilities immediately.
-  // This runs in parallel with the core Command Center data.
-  const facilityPromise = api.getPublicFacilities({
-    region: 'nashik',
-    facility_type: 'all'
-  });
-
-  // Load core Command Center data.
-  const coreResults = await Promise.allSettled([
-    api.getRequests(),
-    api.getShortages(),
-    api.getAnalytics()
-  ]);
-
-  // Requests
-  if (coreResults[0].status === 'fulfilled') {
-    setRequests(coreResults[0].value);
-  } else {
-    console.error(
-      'Failed to load requests:',
-      coreResults[0].reason
-    );
-  }
-
-  // Shortages
-if (coreResults[1].status === 'fulfilled') {
-  setShortages(
-    Array.isArray(coreResults[1].value)
-      ? coreResults[1].value
-      : []
-  );
-} else {
-  console.error(
-    'Failed to load shortages:',
-    coreResults[1].reason
-  );
-
-  // Keep Command Center usable even if shortage API fails
-  setShortages([]);
-}
-
-  // Analytics
-  if (coreResults[2].status === 'fulfilled') {
-    setAnalytics(coreResults[2].value);
-  } else {
-    console.error(
-      'Failed to load analytics:',
-      coreResults[2].reason
-    );
-  }
-
-  // Core Command Center is ready.
-  setLoading(false);
-
-  // Facilities continue loading independently.
-  facilityPromise
-    .then((facilityData) => {
-      setFacilities(facilityData);
-
-      console.log(
-        'Public facilities loaded:',
-        facilityData.length
-      );
-    })
-    .catch((error) => {
-      console.error(
-        'Failed to load public facilities:',
-        error
-      );
+    // Start public facilities immediately.
+    // This runs in parallel with the core Command Center data.
+    const facilityPromise = api.getPublicFacilities({
+      region: 'nashik',
+      facility_type: 'all'
     });
 
-  // Load official MSWC warehouses independently.
-  api.getOfficialWarehouses('Nashik')
-    .then((warehouseData) => {
-      setOfficialWarehouses(warehouseData);
+    // Load core Command Center data.
+    const coreResults = await Promise.allSettled([
+      api.getRequests(),
+      api.getShortages(),
+      api.getAnalytics()
+    ]);
 
-      console.log(
-        'Official warehouses loaded:',
-        warehouseData.length
-      );
-    })
-    .catch((error) => {
+    // Requests
+    if (coreResults[0].status === 'fulfilled') {
+      setRequests(coreResults[0].value);
+    } else {
       console.error(
-        'Failed to load official warehouses:',
-        error
+        'Failed to load requests:',
+        coreResults[0].reason
       );
-    });
+    }
 
-  // Load actual delivery operations independently.
-  setDeliveryLoading(true);
-
-  api.getDeliveries()
-    .then((deliveryData) => {
-      setDeliveries(deliveryData);
-
-      console.log(
-        'Deliveries loaded:',
-        deliveryData.length
+    // Shortages
+    if (coreResults[1].status === 'fulfilled') {
+      setShortages(
+        Array.isArray(coreResults[1].value)
+          ? coreResults[1].value
+          : []
       );
-    })
-    .catch((error) => {
+    } else {
       console.error(
-        'Failed to load deliveries:',
-        error
+        'Failed to load shortages:',
+        coreResults[1].reason
       );
-    })
-    .finally(() => {
-      setDeliveryLoading(false);
-    });
-};
 
-    const facilityCounts = facilities.reduce(
+      // Keep Command Center usable even if shortage API fails
+      setShortages([]);
+    }
+
+    // Analytics
+    if (coreResults[2].status === 'fulfilled') {
+      setAnalytics(coreResults[2].value);
+    } else {
+      console.error(
+        'Failed to load analytics:',
+        coreResults[2].reason
+      );
+    }
+
+    // Core Command Center is ready.
+    setLoading(false);
+
+    // Facilities continue loading independently.
+    facilityPromise
+      .then((facilityData) => {
+        setFacilities(facilityData);
+
+        console.log(
+          'Public facilities loaded:',
+          facilityData.length
+        );
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to load public facilities:',
+          error
+        );
+      });
+
+    // Load official MSWC warehouses independently.
+    api.getOfficialWarehouses('Nashik')
+      .then((warehouseData) => {
+        setOfficialWarehouses(warehouseData);
+
+        console.log(
+          'Official warehouses loaded:',
+          warehouseData.length
+        );
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to load official warehouses:',
+          error
+        );
+      });
+
+    // Load actual delivery operations independently.
+    setDeliveryLoading(true);
+
+    api.getDeliveries()
+      .then((deliveryData) => {
+        setDeliveries(deliveryData);
+
+        console.log(
+          'Deliveries loaded:',
+          deliveryData.length
+        );
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to load deliveries:',
+          error
+        );
+      })
+      .finally(() => {
+        setDeliveryLoading(false);
+      });
+  };
+
+  const facilityCounts = facilities.reduce(
     (counts, facility) => {
       const type = facility.facility_type || 'Unknown';
       counts[type] = (counts[type] || 0) + 1;
@@ -222,231 +224,233 @@ if (coreResults[1].status === 'fulfilled') {
     { type: 'School', count: facilityCounts['School'] || 0 },
     { type: 'Community Centre', count: facilityCounts['Community Centre'] || 0 }
   ];
-const refreshDeliveries = async () => {
-  try {
-    const data = await api.getDeliveries();
-    setDeliveries(data);
-  } catch (error) {
-    console.error(
-      'Failed to refresh deliveries:',
-      error
-    );
-  }
-};
 
-const handleDispatch = async (delivery: any) => {
-  if (!delivery?.id || !delivery?.allocation_id) {
-    showNotification(
-      'Delivery or allocation information is missing.'
-    );
-    return;
-  }
-
-  try {
-    setDeliveryActionId(delivery.id);
-
-    await api.dispatchDelivery(
-      delivery.id,
-      delivery.allocation_id
-    );
-
-    showNotification(
-      'Delivery dispatched successfully.'
-    );
-
-    await refreshDeliveries();
-  } catch (error: any) {
-    console.error(
-      'Dispatch failed:',
-      error
-    );
-
-    showNotification(
-      error?.message ||
-      'Unable to dispatch delivery.'
-    );
-  } finally {
-    setDeliveryActionId(null);
-  }
-};
-
-const handleInTransit = async (delivery: any) => {
-  if (!delivery?.id) return;
-
-  try {
-    setDeliveryActionId(delivery.id);
-
-    await api.updateDeliveryStatus(
-      delivery.id,
-      'IN_TRANSIT',
-      'Relief vehicle departed from warehouse and is travelling to the community.'
-    );
-
-    showNotification(
-      'Delivery marked as in transit.'
-    );
-
-    await refreshDeliveries();
-  } catch (error: any) {
-    console.error(
-      'Status update failed:',
-      error
-    );
-
-    showNotification(
-      error?.message ||
-      'Unable to update delivery status.'
-    );
-  } finally {
-    setDeliveryActionId(null);
-  }
-};
-const handleProofPhotoUpload = async (
-  event: React.ChangeEvent<HTMLInputElement>
-) => {
-  const file = event.target.files?.[0];
-
-  if (!file) return;
-
-  if (!file.type.startsWith('image/')) {
-    showNotification('Please select an image file.');
-    return;
-  }
-
-  setProofPhoto(file);
-
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(
-      `${API_BASE}/deliveries/upload-proof-photo`,
-      {
-        method: 'POST',
-        body: formData
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => null);
-
-      throw new Error(
-        error?.detail || 'Photo upload failed.'
+  const refreshDeliveries = async () => {
+    try {
+      const data = await api.getDeliveries();
+      setDeliveries(data);
+    } catch (error) {
+      console.error(
+        'Failed to refresh deliveries:',
+        error
       );
     }
-
-    const data = await response.json();
-
-    setProofPhotoUrl(data.proof_photo_url);
-
-    showNotification(
-      'Handover photo uploaded successfully.'
-    );
-
-  } catch (error: any) {
-    console.error(
-      'Proof photo upload failed:',
-      error
-    );
-
-    setProofPhoto(null);
-    setProofPhotoUrl('');
-
-    showNotification(
-      error?.message ||
-      'Unable to upload handover photo.'
-    );
-  }
-};
-
-
-const handleCompleteDelivery = async () => {
-  if (!selectedDelivery?.id) {
-    showNotification(
-      'Delivery information is missing.'
-    );
-    return;
-  }
-
-  if (!proofPhotoUrl) {
-    showNotification(
-      'Handover photo is required.'
-    );
-    return;
-  }
-
-  if (
-    !signatureRef.current ||
-    signatureRef.current.isEmpty()
-  ) {
-    showNotification(
-      'Recipient signature is required.'
-    );
-    return;
-  }
-
-  const signature =
-    signatureRef.current.toDataURL('image/png');
-
-  try {
-    setDeliveryActionId(selectedDelivery.id);
-
-    await api.updateDeliveryStatus(
-      selectedDelivery.id,
-      'DELIVERED',
-      handoverNotes,
-      proofPhotoUrl,
-      signature
-    );
-
-    showNotification(
-      'Delivery completed and handover verified.'
-    );
-
-    setShowCompleteDelivery(false);
-    setSelectedDelivery(null);
-
-    setProofPhoto(null);
-    setProofPhotoUrl('');
-    setRecipientSignature('');
-    setHandoverNotes('');
-
-    signatureRef.current.clear();
-
-    await refreshDeliveries();
-
-  } catch (error: any) {
-    console.error(
-      'Delivery completion failed:',
-      error
-    );
-
-    showNotification(
-      error?.message ||
-      'Unable to complete delivery.'
-    );
-
-  } finally {
-    setDeliveryActionId(null);
-  }
-};
-  useEffect(() => {
-  loadAll();
-
-  const interval = window.setInterval(() => {
-    api.getRequests()
-      .then(reqData => {
-        setRequests(reqData);
-      })
-      .catch(err => {
-        console.error('Failed to refresh requests:', err);
-      });
-  }, 10000);
-
-  return () => {
-    window.clearInterval(interval);
   };
-}, [isEscalated]);
+
+  const handleDispatch = async (delivery: any) => {
+    if (!delivery?.id || !delivery?.allocation_id) {
+      showNotification(
+        'Delivery or allocation information is missing.'
+      );
+      return;
+    }
+
+    try {
+      setDeliveryActionId(delivery.id);
+
+      await api.dispatchDelivery(
+        delivery.id,
+        delivery.allocation_id
+      );
+
+      showNotification(
+        'Delivery dispatched successfully.'
+      );
+
+      await refreshDeliveries();
+    } catch (error: any) {
+      console.error(
+        'Dispatch failed:',
+        error
+      );
+
+      showNotification(
+        error?.message ||
+        'Unable to dispatch delivery.'
+      );
+    } finally {
+      setDeliveryActionId(null);
+    }
+  };
+
+  const handleInTransit = async (delivery: any) => {
+    if (!delivery?.id) return;
+
+    try {
+      setDeliveryActionId(delivery.id);
+
+      await api.updateDeliveryStatus(
+        delivery.id,
+        'IN_TRANSIT',
+        'Relief vehicle departed from warehouse and is travelling to the community.'
+      );
+
+      showNotification(
+        'Delivery marked as in transit.'
+      );
+
+      await refreshDeliveries();
+    } catch (error: any) {
+      console.error(
+        'Status update failed:',
+        error
+      );
+
+      showNotification(
+        error?.message ||
+        'Unable to update delivery status.'
+      );
+    } finally {
+      setDeliveryActionId(null);
+    }
+  };
+
+  const handleProofPhotoUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showNotification('Please select an image file.');
+      return;
+    }
+
+    setProofPhoto(file);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(
+        `${API_BASE}/deliveries/upload-proof-photo`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+
+        throw new Error(
+          error?.detail || 'Photo upload failed.'
+        );
+      }
+
+      const data = await response.json();
+
+      setProofPhotoUrl(data.proof_photo_url);
+
+      showNotification(
+        'Handover photo uploaded successfully.'
+      );
+
+    } catch (error: any) {
+      console.error(
+        'Proof photo upload failed:',
+        error
+      );
+
+      setProofPhoto(null);
+      setProofPhotoUrl('');
+
+      showNotification(
+        error?.message ||
+        'Unable to upload handover photo.'
+      );
+    }
+  };
+
+  const handleCompleteDelivery = async () => {
+    if (!selectedDelivery?.id) {
+      showNotification(
+        'Delivery information is missing.'
+      );
+      return;
+    }
+
+    if (!proofPhotoUrl) {
+      showNotification(
+        'Handover photo is required.'
+      );
+      return;
+    }
+
+    if (
+      !signatureRef.current ||
+      signatureRef.current.isEmpty()
+    ) {
+      showNotification(
+        'Recipient signature is required.'
+      );
+      return;
+    }
+
+    const signature =
+      signatureRef.current.toDataURL('image/png');
+
+    try {
+      setDeliveryActionId(selectedDelivery.id);
+
+      await api.updateDeliveryStatus(
+        selectedDelivery.id,
+        'DELIVERED',
+        handoverNotes,
+        proofPhotoUrl,
+        signature
+      );
+
+      showNotification(
+        'Delivery completed and handover verified.'
+      );
+
+      setShowCompleteDelivery(false);
+      setSelectedDelivery(null);
+
+      setProofPhoto(null);
+      setProofPhotoUrl('');
+      setRecipientSignature('');
+      setHandoverNotes('');
+
+      signatureRef.current.clear();
+
+      await refreshDeliveries();
+
+    } catch (error: any) {
+      console.error(
+        'Delivery completion failed:',
+        error
+      );
+
+      showNotification(
+        error?.message ||
+        'Unable to complete delivery.'
+      );
+
+    } finally {
+      setDeliveryActionId(null);
+    }
+  };
+
+  useEffect(() => {
+    loadAll();
+
+    const interval = window.setInterval(() => {
+      api.getRequests()
+        .then(reqData => {
+          setRequests(reqData);
+        })
+        .catch(err => {
+          console.error('Failed to refresh requests:', err);
+        });
+    }, 10000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [isEscalated]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 pb-12">
@@ -761,7 +765,7 @@ const handleCompleteDelivery = async () => {
 
       </div>
 
-            {/* Public Facility Intelligence */}
+      {/* Public Facility Intelligence */}
       <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
 
         <div className="flex items-center justify-between mb-4">
@@ -816,7 +820,7 @@ const handleCompleteDelivery = async () => {
       {/* Publicly Mapped Facilities */}
       <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
 
-              <button
+        <button
           type="button"
           onClick={() => setShowFacilities(prev => !prev)}
           className="w-full flex items-center justify-between mb-4 pb-2 border-b border-slate/15 text-left"
@@ -846,7 +850,7 @@ const handleCompleteDelivery = async () => {
 
         </button>
 
-                {showFacilities && (
+        {showFacilities && (
           facilities.length === 0 ? (
 
             <div className="text-sm text-slate py-4">
@@ -857,714 +861,551 @@ const handleCompleteDelivery = async () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 
-            {facilities.map((facility) => (
+              {facilities.map((facility) => (
 
-              <div
-                key={`${facility.osm_type}-${facility.osm_id}`}
-                className="bg-white border border-slate/20 rounded-lg p-4"
-              >
+                <div
+                  key={`${facility.osm_type}-${facility.osm_id}`}
+                  className="bg-white border border-slate/20 rounded-lg p-4"
+                >
 
-                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
 
-                  <div>
-                    <div className="font-bold text-navy">
-                      {facility.name}
+                    <div>
+                      <div className="font-bold text-navy">
+                        {facility.name}
+                      </div>
+
+                      <div className="text-[11px] text-terracotta font-semibold mt-1">
+                        {facility.facility_type}
+                      </div>
+
+                      <div className="mt-2">
+                        <span className="text-[10px] font-semibold text-navy bg-navy/5 px-2 py-1 rounded">
+                          {getFacilityRole(facility.facility_type)}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="text-[11px] text-terracotta font-semibold mt-1">
-  {facility.facility_type}
-</div>
+                    <span className="text-[9px] font-semibold text-slate bg-slate/10 px-2 py-1 rounded">
+                      OSM
+                    </span>
 
-<div className="mt-2">
-  <span className="text-[10px] font-semibold text-navy bg-navy/5 px-2 py-1 rounded">
-    {getFacilityRole(facility.facility_type)}
-  </span>
-</div>
                   </div>
 
-                  <span className="text-[9px] font-semibold text-slate bg-slate/10 px-2 py-1 rounded">
-                    OSM
-                  </span>
+                  <div className="text-[11px] text-slate mt-3">
+                    {facility.address}
+                  </div>
+
+                  <div className="text-[10px] text-slate mt-2 font-mono">
+                    {facility.latitude.toFixed(5)}, {facility.longitude.toFixed(5)}
+                  </div>
+
+                  {facility.source_url && (
+                    <a
+                      href={facility.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[10px] text-terracotta hover:underline mt-3"
+                    >
+                      View OpenStreetMap
+
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
 
                 </div>
 
-                <div className="text-[11px] text-slate mt-3">
-                  {facility.address}
-                </div>
+              ))}
 
-                <div className="text-[10px] text-slate mt-2 font-mono">
-                  {facility.latitude.toFixed(5)}, {facility.longitude.toFixed(5)}
-                </div>
-
-                
-
-                {facility.source_url && (
-                  <a
-                    href={facility.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-[10px] text-terracotta hover:underline mt-3"
-                  >
-                    View OpenStreetMap
-
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-
-              </div>
-
-                        ))}
-
-          </div>
+            </div>
 
           )
         )}
 
-      </div>        
+      </div>
+
       {/* Official MSWC Warehouses */}
-<div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
+      <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
 
-  <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate/15">
-
-    <div>
-      <h3 className="font-bold text-base text-navy">
-        Official MSWC Warehouses
-      </h3>
-
-      <p className="text-xs text-slate mt-0.5">
-        Official warehouse records from Maharashtra State Warehousing Corporation
-      </p>
-    </div>
-
-    <div className="text-right">
-      <div className="text-2xl font-extrabold text-navy">
-        {officialWarehouses.length}
-      </div>
-
-      <div className="text-[10px] text-slate uppercase tracking-wider font-semibold">
-        Official warehouses
-      </div>
-    </div>
-
-  </div>
-
-  <div className="mb-4 rounded-lg border border-slate/15 bg-white px-4 py-3">
-
-    <div className="text-xs font-semibold text-navy">
-      Official source data
-    </div>
-
-    <div className="text-[11px] text-slate mt-1">
-      Warehouse identity, address, godown count and storage capacity
-      are sourced from MSWC. Live inventory and coordinates are not
-      reported unless independently verified.
-    </div>
-
-  </div>
-
-  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-
-    {officialWarehouses.map((warehouse) => (
-
-      <div
-        key={warehouse.id}
-        className="bg-white border border-slate/20 rounded-lg p-4"
-      >
-
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate/15">
 
           <div>
-            <div className="font-bold text-navy">
-              {warehouse.warehouse_name}
+            <h3 className="font-bold text-base text-navy">
+              Official MSWC Warehouses
+            </h3>
+
+            <p className="text-xs text-slate mt-0.5">
+              Official warehouse records from Maharashtra State Warehousing Corporation
+            </p>
+          </div>
+
+          <div className="text-right">
+            <div className="text-2xl font-extrabold text-navy">
+              {officialWarehouses.length}
             </div>
 
-            <div className="text-[11px] text-terracotta font-semibold mt-1">
-              Plant Code: {warehouse.plant_code}
+            <div className="text-[10px] text-slate uppercase tracking-wider font-semibold">
+              Official warehouses
             </div>
           </div>
 
-          <span className="text-[9px] font-semibold text-navy bg-navy/5 px-2 py-1 rounded">
-            MSWC
-          </span>
-
         </div>
 
-        <div className="mt-3 space-y-2">
+        <div className="mb-4 rounded-lg border border-slate/15 bg-white px-4 py-3">
 
-          <div className="flex justify-between text-[11px]">
-            <span className="text-slate">
-              Taluka
-            </span>
-
-            <span className="font-semibold text-navy">
-              {warehouse.taluka || 'Not reported'}
-            </span>
+          <div className="text-xs font-semibold text-navy">
+            Official source data
           </div>
 
-          <div className="flex justify-between text-[11px]">
-            <span className="text-slate">
-              Capacity
-            </span>
-
-            <span className="font-semibold text-navy">
-              {warehouse.capacity_mt != null
-                ? `${warehouse.capacity_mt.toLocaleString()} MT`
-                : 'Not reported'}
-            </span>
-          </div>
-
-          <div className="flex justify-between text-[11px]">
-            <span className="text-slate">
-              Godowns
-            </span>
-
-            <span className="font-semibold text-navy">
-              {warehouse.godown_count ?? 'Not reported'}
-            </span>
+          <div className="text-[11px] text-slate mt-1">
+            Warehouse identity, address, godown count and storage capacity
+            are sourced from MSWC. Live inventory and coordinates are not
+            reported unless independently verified.
           </div>
 
         </div>
 
-        <div className="mt-3 pt-2 border-t border-slate/15">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
 
-          <div className="text-[10px] text-slate">
-            Address
-          </div>
+          {officialWarehouses.map((warehouse) => (
 
-          <div className="text-[11px] text-navy mt-1 leading-relaxed">
-            {warehouse.address}
-          </div>
+            <div
+              key={warehouse.id}
+              className="bg-white border border-slate/20 rounded-lg p-4"
+            >
 
-        </div>
+              <div className="flex items-start justify-between gap-3">
 
-        <div className="mt-3 pt-2 border-t border-slate/15 space-y-1">
+                <div>
+                  <div className="font-bold text-navy">
+                    {warehouse.warehouse_name}
+                  </div>
 
-          <div className="flex justify-between text-[10px]">
-            <span className="text-slate">
-              Location
-            </span>
+                  <div className="text-[11px] text-terracotta font-semibold mt-1">
+                    Plant Code: {warehouse.plant_code}
+                  </div>
+                </div>
 
-            <span className="font-semibold text-terracotta">
-              {warehouse.location_status ===
-              'PENDING_COORDINATE_VERIFICATION'
-                ? 'Pending verification'
-                : 'Verified'}
-            </span>
-          </div>
+                <span className="text-[9px] font-semibold text-navy bg-navy/5 px-2 py-1 rounded">
+                  MSWC
+                </span>
 
-          <div className="flex justify-between text-[10px]">
-            <span className="text-slate">
-              Inventory
-            </span>
+              </div>
 
-            <span className="font-semibold text-slate">
-              {warehouse.inventory_status === 'NOT_REPORTED'
-                ? 'Not reported'
-                : warehouse.inventory_status}
-            </span>
-          </div>
+              <div className="mt-3 space-y-2">
+
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate">
+                    Taluka
+                  </span>
+
+                  <span className="font-semibold text-navy">
+                    {warehouse.taluka || 'Not reported'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate">
+                    Capacity
+                  </span>
+
+                  <span className="font-semibold text-navy">
+                    {warehouse.capacity_mt != null
+                      ? `${warehouse.capacity_mt.toLocaleString()} MT`
+                      : 'Not reported'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate">
+                    Godowns
+                  </span>
+
+                  <span className="font-semibold text-navy">
+                    {warehouse.godown_count ?? 'Not reported'}
+                  </span>
+                </div>
+
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-slate/15">
+
+                <div className="text-[10px] text-slate">
+                  Address
+                </div>
+
+                <div className="text-[11px] text-navy mt-1 leading-relaxed">
+                  {warehouse.address}
+                </div>
+
+              </div>
+
+              <div className="mt-3 pt-2 border-t border-slate/15 space-y-1">
+
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-slate">
+                    Location
+                  </span>
+
+                  <span className="font-semibold text-terracotta">
+                    {warehouse.location_status ===
+                    'PENDING_COORDINATE_VERIFICATION'
+                      ? 'Pending verification'
+                      : 'Verified'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-[10px]">
+                  <span className="text-slate">
+                    Inventory
+                  </span>
+
+                  <span className="font-semibold text-slate">
+                    {warehouse.inventory_status === 'NOT_REPORTED'
+                      ? 'Not reported'
+                      : warehouse.inventory_status}
+                  </span>
+                </div>
+
+              </div>
+
+            </div>
+
+          ))}
 
         </div>
 
       </div>
 
-    ))}
-
-  </div>
-
-</div>   
-{/* ============================================================
-    RESPONSE OPERATIONS
-============================================================ */}
-
-<div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
-
-  <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate/15">
-
-    <div>
-      <h3 className="font-bold text-base text-navy">
-        Response Operations
-      </h3>
-
-      <p className="text-xs text-slate mt-0.5">
-        Manage approved allocations and field response operations
-      </p>
-    </div>
-
-    <div className="flex items-center gap-2">
-
-      <span className="text-xs font-semibold text-navy bg-navy/5 px-2.5 py-1 rounded">
-        {deliveries.length} active responses
-      </span>
-
-      <button
-        type="button"
-        onClick={refreshDeliveries}
-        className="p-1.5 text-slate hover:text-navy border border-slate/20 rounded-md bg-white"
-        title="Refresh responses"
-      >
-        <RefreshCw className="w-4 h-4" />
-      </button>
-
-    </div>
-
-  </div>
-
-
-  {deliveryLoading && deliveries.length === 0 ? (
-
-    <div className="text-sm text-slate py-5">
-      Loading response operations...
-    </div>
-
-  ) : deliveries.length === 0 ? (
-
-    <div className="text-sm text-slate py-5">
-      No approved allocations are awaiting response-team action.
-    </div>
-
-  ) : (
-
-    <div className="space-y-3">
-
-      {deliveries.map((delivery) => {
-
-        const status = String(
-          delivery.status || ''
-        ).toUpperCase();
-
-        /*
-         * Response lifecycle:
-         *
-         * ALLOCATED
-         *      ↓
-         * TEAM_CREATED
-         *      ↓
-         * ASSIGNED
-         *      ↓
-         * DISPATCHED
-         *      ↓
-         * IN_TRANSIT
-         *      ↓
-         * ON_SCENE
-         *      ↓
-         * COMPLETED
-         */
-
-        const isAllocated =
-          status === 'ALLOCATED';
-
-        const isTeamCreated =
-          status === 'TEAM_CREATED';
-
-        const isAssigned =
-          status === 'ASSIGNED';
-
-        const isDispatched =
-          status === 'DISPATCHED';
-
-        const isInTransit =
-          status === 'IN_TRANSIT';
-
-        const isOnScene =
-          status === 'ON_SCENE';
-
-        const isCompleted =
-          status === 'COMPLETED';
-
-        const isWorking =
-          deliveryActionId === delivery.id;
-
-
-        return (
-
-          <div
-            key={delivery.id}
-            className="bg-white border border-slate/20 rounded-xl p-4"
-          >
-
-            {/* ==================================================
-                RESPONSE HEADER
-            ================================================== */}
-
-            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
-
-              <div>
-
-                <div className="flex items-center gap-2">
-
-                  <span className="font-bold text-navy">
-                    {delivery.relief_id}
-                  </span>
-
-                  <StatusBadge
-                    status={status}
-                    size="sm"
-                  />
-
-                </div>
-
-                <div className="text-[11px] text-slate mt-1">
-
-                  Allocation ID: #{delivery.allocation_id}
-
-                  {' • '}
-
-                  Response ID: #{delivery.id}
-
-                </div>
-
-              </div>
-
-
-              <div className="text-right">
-
-                <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
-                  Destination
-                </div>
-
-                <div className="text-xs font-semibold text-navy mt-0.5">
-                  {delivery.destination_location_name}
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* ==================================================
-                RESPONSE DETAILS
-            ================================================== */}
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-
-              <div className="bg-ivory border border-slate/15 rounded-lg p-3">
-
-                <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
-                  Allocation
-                </div>
-
-                <div className="text-xs font-semibold text-navy mt-1">
-                  AI Allocation Approved
-                </div>
-
-              </div>
-
-
-              <div className="bg-ivory border border-slate/15 rounded-lg p-3">
-
-                <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
-                  Response Team
-                </div>
-
-                <div className="text-xs font-semibold text-navy mt-1">
-                  {delivery.response_team_name || 'Not created'}
-                </div>
-
-              </div>
-
-
-              <div className="bg-ivory border border-slate/15 rounded-lg p-3">
-
-                <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
-                  Vehicle
-                </div>
-
-                <div className="text-xs font-semibold text-navy mt-1">
-                  {delivery.vehicle_id
-                    ? `Vehicle #${delivery.vehicle_id}`
-                    : 'Not assigned'}
-                </div>
-
-              </div>
-
-            </div>
-
-
-            {/* ==================================================
-                RESPONSE TIMELINE
-            ================================================== */}
-
-            <div className="flex flex-wrap items-center gap-2 mt-4 text-[10px] font-semibold">
-
-              {/* 1. Allocation Approved */}
-
-              <span
-                className={
-                  [
-                    'ALLOCATED',
-                    'TEAM_CREATED',
-                    'ASSIGNED',
-                    'DISPATCHED',
-                    'IN_TRANSIT',
-                    'ON_SCENE',
-                    'COMPLETED'
-                  ].includes(status)
-                    ? 'text-status-fulfilled'
-                    : 'text-slate'
-                }
-              >
-                1. Allocation Approved
-              </span>
-
-
-              <ArrowRight className="w-3 h-3 text-slate" />
-
-
-              {/* 2. Team Created */}
-
-              <span
-                className={
-                  [
-                    'TEAM_CREATED',
-                    'ASSIGNED',
-                    'DISPATCHED',
-                    'IN_TRANSIT',
-                    'ON_SCENE',
-                    'COMPLETED'
-                  ].includes(status)
-                    ? 'text-status-fulfilled'
-                    : 'text-slate'
-                }
-              >
-                2. Team Created
-              </span>
-
-
-              <ArrowRight className="w-3 h-3 text-slate" />
-
-
-              {/* 3. Task Assigned */}
-
-              <span
-                className={
-                  [
-                    'ASSIGNED',
-                    'DISPATCHED',
-                    'IN_TRANSIT',
-                    'ON_SCENE',
-                    'COMPLETED'
-                  ].includes(status)
-                    ? 'text-status-fulfilled'
-                    : 'text-slate'
-                }
-              >
-                3. Task Assigned
-              </span>
-
-
-              <ArrowRight className="w-3 h-3 text-slate" />
-
-
-              {/* 4. Dispatched */}
-
-              <span
-                className={
-                  [
-                    'DISPATCHED',
-                    'IN_TRANSIT',
-                    'ON_SCENE',
-                    'COMPLETED'
-                  ].includes(status)
-                    ? 'text-status-fulfilled'
-                    : 'text-slate'
-                }
-              >
-                4. Dispatched
-              </span>
-
-
-              <ArrowRight className="w-3 h-3 text-slate" />
-
-
-              {/* 5. In Transit */}
-
-              <span
-                className={
-                  [
-                    'IN_TRANSIT',
-                    'ON_SCENE',
-                    'COMPLETED'
-                  ].includes(status)
-                    ? 'text-status-fulfilled'
-                    : 'text-slate'
-                }
-              >
-                5. In Transit
-              </span>
-
-
-              <ArrowRight className="w-3 h-3 text-slate" />
-
-
-              {/* 6. On Scene */}
-
-              <span
-                className={
-                  [
-                    'ON_SCENE',
-                    'COMPLETED'
-                  ].includes(status)
-                    ? 'text-status-fulfilled'
-                    : 'text-slate'
-                }
-              >
-                6. On Scene
-              </span>
-
-
-              <ArrowRight className="w-3 h-3 text-slate" />
-
-
-              {/* 7. Complete */}
-
-              <span
-                className={
-                  status === 'COMPLETED'
-                    ? 'text-status-fulfilled'
-                    : 'text-slate'
-                }
-              >
-                7. Complete
-              </span>
-
-            </div>
-
-
-            {/* ==================================================
-                ACTIONS
-            ================================================== */}
-
-            <div className="mt-4 pt-3 border-t border-slate/15 flex flex-wrap gap-2">
-
-
-              {/* ================================================
-                  CREATE RESPONSE TEAM
-              ================================================= */}
-
-              {isAllocated && (
-
-  <button
-    type="button"
-    onClick={() => setActiveTab('response-units')}
-    className="bg-navy hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-  >
-    Create Response Unit
-  </button>
-
-)}
-
-
-              {/* ================================================
-                  ASSIGN TASK
-              ================================================= */}
-
-              {isTeamCreated && (
-
-                <button
-                  type="button"
-                  className="bg-terracotta hover:bg-terracotta-hover text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-                >
-                  Assign Task
-                </button>
-
-              )}
-
-
-              {/* ================================================
-                  DISPATCH
-              ================================================= */}
-
-              {isAssigned && (
-
-                <button
-                  type="button"
-                  className="bg-navy hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-                >
-                  Dispatch Team
-                </button>
-
-              )}
-
-
-              {/* ================================================
-                  IN TRANSIT
-              ================================================= */}
-
-              {isDispatched && (
-
-                <button
-                  type="button"
-                  className="bg-navy hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-                >
-                  Mark In Transit
-                </button>
-
-              )}
-
-
-              {/* ================================================
-                  ON SCENE
-              ================================================= */}
-
-              {isInTransit && (
-
-                <button
-                  type="button"
-                  className="bg-terracotta hover:bg-terracotta-hover text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-                >
-                  Mark On Scene
-                </button>
-
-              )}
-
-
-              {/* ================================================
-                  COMPLETE
-              ================================================= */}
-
-              {isOnScene && (
-
-                <button
-                  type="button"
-                  className="bg-terracotta hover:bg-terracotta-hover text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-                >
-                  Complete Response
-                </button>
-
-              )}
-
-
-              {/* ================================================
-                  COMPLETED
-              ================================================= */}
-
-              {isCompleted && (
-
-                <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-md">
-
-                  <CheckCircle className="w-3.5 h-3.5" />
-
-                  Response completed. Team dissolved and operators
-                  returned to the available pool.
-
-                </div>
-
-              )}
-
-            </div>
+      {/* ============================================================
+          RESPONSE OPERATIONS
+      ============================================================ */}
+
+      <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
+
+        <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate/15">
+
+          <div>
+            <h3 className="font-bold text-base text-navy">
+              Response Operations
+            </h3>
+
+            <p className="text-xs text-slate mt-0.5">
+              Coordinate approved allocations and field response teams
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+
+            <span className="text-xs font-semibold text-navy bg-navy/5 px-2.5 py-1 rounded">
+              {deliveries.length} active responses
+            </span>
+
+            <button
+              type="button"
+              onClick={refreshDeliveries}
+              className="p-1.5 text-slate hover:text-navy border border-slate/20 rounded-md bg-white"
+              title="Refresh response operations"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
 
           </div>
 
-        );
+        </div>
 
-      })}
+        {deliveryLoading && deliveries.length === 0 ? (
 
-    </div>
+          <div className="text-sm text-slate py-5">
+            Loading response operations...
+          </div>
 
-  )}
+        ) : deliveries.length === 0 ? (
 
-</div>
+          <div className="text-sm text-slate py-5">
+            No approved allocations are awaiting response-team action.
+          </div>
+
+        ) : (
+
+          <div className="space-y-3">
+
+            {deliveries.map((delivery) => {
+
+              const status = String(
+                delivery.status || ''
+              ).toUpperCase();
+
+              const isAllocated =
+                status === 'ALLOCATED';
+
+              const isInTransit =
+                status === 'IN_TRANSIT';
+
+              const isDelivered =
+                status === 'DELIVERED';
+
+              const isWorking =
+                deliveryActionId === delivery.id;
+
+              /*
+               * Request type determines the final response action.
+               * If your backend later exposes request_type directly on
+               * the delivery, use that value here.
+               */
+              const requestType = String(
+                delivery.request_type || ''
+              ).toUpperCase();
+
+              const isEvacuation =
+                requestType === 'EVACUATION';
+
+              return (
+
+                <div
+                  key={delivery.id}
+                  className="bg-white border border-slate/20 rounded-xl p-4"
+                >
+
+                  {/* ====================================================
+                      RESPONSE HEADER
+                  ==================================================== */}
+
+                  <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+
+                    <div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+
+                        <span className="font-bold text-navy">
+                          {delivery.relief_id}
+                        </span>
+
+                        <StatusBadge
+                          status={status}
+                          size="sm"
+                        />
+
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-navy/10 text-navy">
+                          {isEvacuation
+                            ? 'EVACUATION'
+                            : 'RELIEF'}
+                        </span>
+
+                      </div>
+
+                      <div className="text-[11px] text-slate mt-1">
+                        Allocation ID: #{delivery.allocation_id}
+                        {' • '}
+                        Response ID: #{delivery.id}
+                      </div>
+
+                    </div>
+
+                    <div className="text-right">
+
+                      <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
+                        Destination
+                      </div>
+
+                      <div className="text-xs font-semibold text-navy mt-0.5">
+                        {delivery.destination_location_name}
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* ====================================================
+                      RESPONSE DETAILS
+                  ==================================================== */}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+
+                    <div className="bg-ivory border border-slate/15 rounded-lg p-3">
+
+                      <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
+                        Allocation
+                      </div>
+
+                      <div className="text-xs font-semibold text-navy mt-1">
+                        Approved
+                      </div>
+
+                    </div>
+
+                    <div className="bg-ivory border border-slate/15 rounded-lg p-3">
+
+                      <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
+                        Response Team
+                      </div>
+
+                      <div className="text-xs font-semibold text-navy mt-1">
+                        {delivery.response_unit_name ||
+                          'Not assigned'}
+                      </div>
+
+                    </div>
+
+                    <div className="bg-ivory border border-slate/15 rounded-lg p-3">
+
+                      <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
+                        Vehicle
+                      </div>
+
+                      <div className="text-xs font-semibold text-navy mt-1">
+                        {delivery.vehicle_id
+                          ? `Vehicle #${delivery.vehicle_id}`
+                          : 'Not assigned'}
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  {/* ====================================================
+                      RESPONSE WORKFLOW
+                  ==================================================== */}
+
+                  <div className="flex flex-wrap items-center gap-2 mt-4 text-[10px] font-semibold">
+
+                    <span className="text-status-fulfilled">
+                      1. Allocation Approved
+                    </span>
+
+                    <ArrowRight className="w-3 h-3 text-slate" />
+
+                    <span
+                      className={
+                        delivery.response_unit_id
+                          ? 'text-status-fulfilled'
+                          : 'text-slate'
+                      }
+                    >
+                      2. Team Assigned
+                    </span>
+
+                    <ArrowRight className="w-3 h-3 text-slate" />
+
+                    <span
+                      className={
+                        isInTransit || isDelivered
+                          ? 'text-status-fulfilled'
+                          : 'text-slate'
+                      }
+                    >
+                      3. In Transit
+                    </span>
+
+                    <ArrowRight className="w-3 h-3 text-slate" />
+
+                    <span
+                      className={
+                        isDelivered
+                          ? 'text-status-fulfilled'
+                          : 'text-slate'
+                      }
+                    >
+                      4. On Scene
+                    </span>
+
+                    <ArrowRight className="w-3 h-3 text-slate" />
+
+                    <span
+                      className={
+                        isDelivered
+                          ? 'text-status-fulfilled'
+                          : 'text-slate'
+                      }
+                    >
+                      5. {isEvacuation
+                        ? 'Evacuation Completed'
+                        : 'Delivery Completed'}
+                    </span>
+
+                  </div>
+
+                  {/* ====================================================
+                      RESPONSE ACTIONS
+                  ==================================================== */}
+
+                  <div className="mt-4 pt-3 border-t border-slate/15 flex flex-wrap gap-2">
+
+                    {/* STEP 1 — CREATE RESPONSE UNIT */}
+
+                    {isAllocated &&
+                      !delivery.response_unit_id && (
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('response-units');
+                          }}
+                          className="bg-terracotta hover:bg-terracotta-hover text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                        >
+                          Create Response Unit
+                        </button>
+
+                      )}
+
+                    {/* TEAM ASSIGNED */}
+
+                    {isAllocated &&
+                      delivery.response_unit_id && (
+
+                        <div className="flex items-center gap-2 text-xs text-navy bg-navy/5 border border-navy/10 px-3 py-1.5 rounded-md">
+
+                          <CheckCircle className="w-3.5 h-3.5" />
+
+                          Response team assigned
+
+                        </div>
+
+                      )}
+
+                    {/* IN TRANSIT */}
+
+                    {isInTransit && (
+
+                      <div className="flex items-center gap-2 text-xs text-navy bg-navy/5 border border-navy/10 px-3 py-1.5 rounded-md">
+
+                        <span className="w-2 h-2 rounded-full bg-navy" />
+
+                        Response team is in transit
+
+                      </div>
+
+                    )}
+
+                    {/* COMPLETED */}
+
+                    {isDelivered && (
+
+                      <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-md">
+
+                        <CheckCircle className="w-3.5 h-3.5" />
+
+                        {isEvacuation
+                          ? 'Evacuation completed and recorded.'
+                          : 'Relief delivery completed and recorded.'}
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                </div>
+
+              );
+
+            })}
+
+          </div>
+
+        )}
+
+      </div>
 
       {/* Two-Column Lower Section */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1649,11 +1490,13 @@ const handleCompleteDelivery = async () => {
                             <span className="font-bold text-navy">
                               {req.location_name}
                             </span>
-                            {req.request_type && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-navy/10 text-navy">
-                                {req.request_type}
-                              </span>
-                            )}
+
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-navy/10 text-navy">
+                              {req.request_type?.toUpperCase() === 'EVACUATION'
+                                ? 'EVACUATION'
+                                : 'SUPPLY'}
+                            </span>
+
                             {req.medical_emergency && (
                               <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-700">
                                 🚨 MEDICAL
@@ -1663,6 +1506,7 @@ const handleCompleteDelivery = async () => {
 
                           <div className="flex items-center gap-2 text-[10px] font-mono text-slate mt-0.5">
                             <span>{req.tracking_code}</span>
+
                             {req.communication_method && (
                               <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
                                 req.communication_method === 'SATELLITE'
@@ -1733,12 +1577,19 @@ const handleCompleteDelivery = async () => {
                           req.status === 'VERIFIED' ? (
 
                             <button
-                              onClick={() =>
-                                setActiveMatchModalRequest(req)
-                              }
+                              onClick={async () => {
+                                if (req.request_type?.toUpperCase() === 'EVACUATION') {
+                                  await api.approveEvacuation(req.id);
+                                  window.location.reload();
+                                } else {
+                                  setActiveMatchModalRequest(req);
+                                }
+                              }}
                               className="bg-terracotta hover:bg-terracotta-hover text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
                             >
-                              Match AI
+                              {req.request_type?.toUpperCase() === 'EVACUATION'
+                                ? 'Approve Evacuation'
+                                : 'Match AI'}
                             </button>
 
                           ) : (
@@ -1762,212 +1613,211 @@ const handleCompleteDelivery = async () => {
           </div>
 
         </div>
-      {/* ============================================================
-          COMPLETE DELIVERY MODAL
-      ============================================================ */}
 
-      {showCompleteDelivery && selectedDelivery && (
+        {/* ============================================================
+            COMPLETE DELIVERY MODAL
+        ============================================================ */}
 
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 backdrop-blur-sm px-4">
+        {showCompleteDelivery && selectedDelivery && (
 
-          <div className="w-full max-w-lg bg-ivory rounded-xl shadow-2xl border border-slate/20 overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy/50 backdrop-blur-sm px-4">
 
-            <div className="px-5 py-4 border-b border-slate/15 flex items-center justify-between">
+            <div className="w-full max-w-lg bg-ivory rounded-xl shadow-2xl border border-slate/20 overflow-hidden">
 
-              <div>
-                <h2 className="text-lg font-bold text-navy">
-                  Complete Delivery
-                </h2>
+              <div className="px-5 py-4 border-b border-slate/15 flex items-center justify-between">
 
-                <p className="text-xs text-slate mt-0.5">
-                  Verify the community handover before completing this delivery.
-                </p>
-              </div>
+                <div>
+                  <h2 className="text-lg font-bold text-navy">
+                    Complete Delivery
+                  </h2>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowCompleteDelivery(false);
-                  setSelectedDelivery(null);
-                }}
-                className="text-slate hover:text-navy text-lg"
-              >
-                ×
-              </button>
-
-            </div>
-
-            <div className="p-5 space-y-5">
-
-              {/* Delivery Info */}
-
-              <div className="bg-white border border-slate/15 rounded-lg p-3">
-
-                <div className="flex items-center justify-between">
-
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
-                      Relief Package
-                    </div>
-
-                    <div className="text-sm font-bold text-navy mt-1">
-                      {selectedDelivery.relief_id}
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
-                      Delivery
-                    </div>
-
-                    <div className="text-sm font-bold text-navy mt-1">
-                      #{selectedDelivery.id}
-                    </div>
-                  </div>
-
+                  <p className="text-xs text-slate mt-0.5">
+                    Verify the community handover before completing this delivery.
+                  </p>
                 </div>
-
-              </div>
-
-
-              {/* Handover Photo */}
-
-              <div>
-
-                <label className="block text-xs font-bold text-navy mb-2">
-                  Handover Photo
-                </label>
-
-                <p className="text-[11px] text-slate mb-2">
-                  Photo of the relief items being handed over.
-                </p>
-
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={handleProofPhotoUpload}
-                  className="block w-full text-xs text-slate"
-                />
-
-                {proofPhoto && (
-
-                  <div className="mt-2 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
-                    ✓ {proofPhoto.name} uploaded
-                  </div>
-
-                )}
-
-              </div>
-
-
-              {/* Recipient Signature */}
-
-              <div>
-
-                <label className="block text-xs font-bold text-navy mb-2">
-                  Recipient Signature
-                </label>
-
-                <p className="text-[11px] text-slate mb-2">
-                  Signature of the person receiving the relief.
-                </p>
-
-                <div className="bg-white border border-slate/25 rounded-lg overflow-hidden">
-
-                  <SignatureCanvas
-                    ref={signatureRef}
-                    penColor="#0F1E36"
-                    onEnd={() => {
-                      if (
-                        signatureRef.current &&
-                        !signatureRef.current.isEmpty()
-                      ) {
-                        setRecipientSignature(
-                          signatureRef.current.toDataURL('image/png')
-                        );
-                      }
-                    }}
-                    canvasProps={{
-                      width: 460,
-                      height: 160,
-                      className: "w-full h-40"
-                    }}
-                  />
-
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    signatureRef.current?.clear();
-                    setRecipientSignature('');
-                  }}
-                  className="text-[11px] text-slate hover:text-navy underline mt-2"
-                >
-                  Clear Signature
-                </button>
-
-              </div>
-
-
-              {/* Handover Notes */}
-
-              <div>
-
-                <label className="block text-xs font-bold text-navy mb-2">
-                  Handover Notes
-                  <span className="font-normal text-slate">
-                    {' '}— optional
-                  </span>
-                </label>
-
-                <textarea
-                  value={handoverNotes}
-                  onChange={(e) =>
-                    setHandoverNotes(e.target.value)
-                  }
-                  rows={3}
-                  placeholder="Optional handover notes"
-                  className="w-full border border-slate/25 rounded-lg px-3 py-2 text-xs text-navy bg-white"
-                />
-
-              </div>
-
-
-              {/* Buttons */}
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate/15">
 
                 <button
                   type="button"
                   onClick={() => {
                     setShowCompleteDelivery(false);
                     setSelectedDelivery(null);
-                    setProofPhoto(null);
-                    setProofPhotoUrl('');
-                    setRecipientSignature('');
-                    setHandoverNotes('');
-                    signatureRef.current?.clear();
                   }}
-                  className="px-4 py-2 rounded-md text-xs font-semibold text-slate border border-slate/25 bg-white"
+                  className="text-slate hover:text-navy text-lg"
                 >
-                  Cancel
+                  ×
                 </button>
 
-                <button
-                  type="button"
-                  onClick={handleCompleteDelivery}
-                  disabled={
-                    deliveryActionId === selectedDelivery.id ||
-                    !proofPhotoUrl ||
-                    !recipientSignature
-                  }
-                  className="px-4 py-2 rounded-md text-xs font-semibold text-white bg-terracotta hover:bg-terracotta-hover disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {deliveryActionId === selectedDelivery.id
-                    ? 'Completing...'
-                    : 'Confirm Delivery'}
-                </button>
+              </div>
+
+              <div className="p-5 space-y-5">
+
+                {/* Delivery Info */}
+
+                <div className="bg-white border border-slate/15 rounded-lg p-3">
+
+                  <div className="flex items-center justify-between">
+
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
+                        Relief Package
+                      </div>
+
+                      <div className="text-sm font-bold text-navy mt-1">
+                        {selectedDelivery.relief_id}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
+                        Delivery
+                      </div>
+
+                      <div className="text-sm font-bold text-navy mt-1">
+                        #{selectedDelivery.id}
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* Handover Photo */}
+
+                <div>
+
+                  <label className="block text-xs font-bold text-navy mb-2">
+                    Handover Photo
+                  </label>
+
+                  <p className="text-[11px] text-slate mb-2">
+                    Photo of the relief items being handed over.
+                  </p>
+
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleProofPhotoUpload}
+                    className="block w-full text-xs text-slate"
+                  />
+
+                  {proofPhoto && (
+
+                    <div className="mt-2 text-[10px] text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                      ✓ {proofPhoto.name} uploaded
+                    </div>
+
+                  )}
+
+                </div>
+
+                {/* Recipient Signature */}
+
+                <div>
+
+                  <label className="block text-xs font-bold text-navy mb-2">
+                    Recipient Signature
+                  </label>
+
+                  <p className="text-[11px] text-slate mb-2">
+                    Signature of the person receiving the relief.
+                  </p>
+
+                  <div className="bg-white border border-slate/25 rounded-lg overflow-hidden">
+
+                    <SignatureCanvas
+                      ref={signatureRef}
+                      penColor="#0F1E36"
+                      onEnd={() => {
+                        if (
+                          signatureRef.current &&
+                          !signatureRef.current.isEmpty()
+                        ) {
+                          setRecipientSignature(
+                            signatureRef.current.toDataURL('image/png')
+                          );
+                        }
+                      }}
+                      canvasProps={{
+                        width: 460,
+                        height: 160,
+                        className: "w-full h-40"
+                      }}
+                    />
+
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      signatureRef.current?.clear();
+                      setRecipientSignature('');
+                    }}
+                    className="text-[11px] text-slate hover:text-navy underline mt-2"
+                  >
+                    Clear Signature
+                  </button>
+
+                </div>
+
+                {/* Handover Notes */}
+
+                <div>
+
+                  <label className="block text-xs font-bold text-navy mb-2">
+                    Handover Notes
+                    <span className="font-normal text-slate">
+                      {' '}— optional
+                    </span>
+                  </label>
+
+                  <textarea
+                    value={handoverNotes}
+                    onChange={(e) =>
+                      setHandoverNotes(e.target.value)
+                    }
+                    rows={3}
+                    placeholder="Optional handover notes"
+                    className="w-full border border-slate/25 rounded-lg px-3 py-2 text-xs text-navy bg-white"
+                  />
+
+                </div>
+
+                {/* Buttons */}
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate/15">
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCompleteDelivery(false);
+                      setSelectedDelivery(null);
+                      setProofPhoto(null);
+                      setProofPhotoUrl('');
+                      setRecipientSignature('');
+                      setHandoverNotes('');
+                      signatureRef.current?.clear();
+                    }}
+                    className="px-4 py-2 rounded-md text-xs font-semibold text-slate border border-slate/25 bg-white"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCompleteDelivery}
+                    disabled={
+                      deliveryActionId === selectedDelivery.id ||
+                      !proofPhotoUrl ||
+                      !recipientSignature
+                    }
+                    className="px-4 py-2 rounded-md text-xs font-semibold text-white bg-terracotta hover:bg-terracotta-hover disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {deliveryActionId === selectedDelivery.id
+                      ? 'Completing...'
+                      : 'Confirm Delivery'}
+                  </button>
+
+                </div>
 
               </div>
 
@@ -1975,9 +1825,8 @@ const handleCompleteDelivery = async () => {
 
           </div>
 
-        </div>
+        )}
 
-      )}
         {/* Shortage Radar */}
         <div className="lg:col-span-5 bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
 

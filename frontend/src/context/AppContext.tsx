@@ -31,7 +31,11 @@ interface AppContextType {
 
   activeTab: string;
   setActiveTab: (tab: string) => void;
+judgeMode: boolean;
+setJudgeMode: (value: boolean) => void;
 
+judgeModeStep: number;
+setJudgeModeStep: (step: number) => void;
   isEmergencyMode: boolean;
   toggleEmergencyMode: () => void;
 
@@ -84,7 +88,11 @@ export const AppProvider: React.FC<{
 
   const [activeTab, setActiveTab] =
     useState<string>('landing');
+const [judgeMode, setJudgeMode] =
+  useState<boolean>(false);
 
+const [judgeModeStep, setJudgeModeStep] =
+  useState<number>(0);
   const [isEmergencyMode, setIsEmergencyMode] =
     useState<boolean>(false);
 
@@ -358,7 +366,11 @@ export const AppProvider: React.FC<{
 
         activeTab,
         setActiveTab,
+judgeMode,
+setJudgeMode,
 
+judgeModeStep,
+setJudgeModeStep,
         isEmergencyMode,
         toggleEmergencyMode,
 

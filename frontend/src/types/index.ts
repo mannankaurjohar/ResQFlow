@@ -37,6 +37,7 @@ export interface User {
   role: UserRole;
   phone?: string;
   organization_id?: number;
+  unit_type?: string;
 }
 
 export interface ExtractedItem {

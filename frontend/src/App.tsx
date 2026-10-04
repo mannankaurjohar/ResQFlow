@@ -28,11 +28,14 @@ import MyRequestsPage from './pages/MyRequestsPage';
 import SignUpPage from './pages/SignUpPage';
 import ResponseUnitsPage from './pages/ResponseUnitsPage';
 import ResponseAssignmentPage from './pages/ResponseAssignmentPage';
+import ResponseUnitTasksPage from './pages/ResponseUnitTasksPage';
+import JudgeModePage from './pages/JudgeModePage';
 const AppContent: React.FC = () => {
   const {
-    activeTab,
-    notification
-  } = useApp();
+  activeTab,
+  notification,
+  judgeMode
+} = useApp();
 
   useEffect(() => {
     window.scrollTo({
@@ -50,7 +53,9 @@ const AppContent: React.FC = () => {
   ) {
     return <ChangePasswordPage />;
   }
-
+if (judgeMode && activeTab === 'judge-mode') {
+  return <JudgeModePage />;
+}
   return (
     <div className="min-h-screen flex flex-col bg-ivory text-navy font-sans antialiased">
 
@@ -126,8 +131,14 @@ const AppContent: React.FC = () => {
         {activeTab === 'audit' && (
           <AuditTrailPage />
         )}
+        {activeTab === 'response-tasks' && (
+  <ResponseUnitTasksPage />
+)}
 {activeTab === 'admin-users' && (
   <AdminUserManagementPage />
+)}
+{judgeMode && (
+  <JudgeModePage />
 )}
       </main>
 

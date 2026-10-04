@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import {
   Plus,
   Users,
@@ -106,13 +106,11 @@ useEffect(() => {
     try {
       const workers = await api.getWorkers();
 
-      console.log('ALL WORKERS:', workers);
-
       const responseOperators = workers.filter(
-        (user) => user.role === 'RESPONSE_UNIT_OPERATOR'
+        (user) =>
+          String(user.role).toUpperCase() ===
+          'RESPONSE_UNIT_OPERATOR'
       );
-
-      console.log('RESPONSE UNIT OPERATORS:', responseOperators);
 
       setOperators(responseOperators);
     } catch (error) {
@@ -123,14 +121,27 @@ useEffect(() => {
   loadOperators();
 }, []);
 
+
 const loadApprovedRequests = async () => {
   try {
     setRequestsLoading(true);
-    const requests = await api.getRequests();
-    const approved = (Array.isArray(requests) ? requests : []).filter((request: any) => {
-      const status = String(request.status || '').toUpperCase();
-      return status === 'APPROVED' || status === 'ALLOCATED';
-    });
+
+    const requests = await api.getRequests({ exclude_assigned: true });
+
+    const approved = (Array.isArray(requests) ? requests : []).filter(
+      (request: any) => {
+        const status = String(request.status || '').toUpperCase();
+
+        return (
+          (status === 'APPROVED' || status === 'ALLOCATED') &&
+          !request.response_assignment_id &&
+          !request.response_unit_id &&
+          !request.assigned_unit_id &&
+          !request.assignment_id
+        );
+      }
+    );
+
     setApprovedRequests(approved);
   } catch (error) {
     console.error('GET APPROVED REQUESTS ERROR:', error);
@@ -139,7 +150,6 @@ const loadApprovedRequests = async () => {
     setRequestsLoading(false);
   }
 };
-
 const openAssignModal = async (unit: ResponseUnit) => {
   setSelectedUnit(unit);
   setSelectedRequestId('');
@@ -153,41 +163,82 @@ const closeAssignModal = () => {
   setSelectedRequestId('');
 };
 
-const handleAssignTeam = () => {
+const handleAssignTeam = async () => {
   if (!selectedUnit || !selectedRequestId) {
     alert('Please select an approved request.');
     return;
   }
 
   const selectedRequest = approvedRequests.find(
-    (request) => String(request.id) === selectedRequestId
+    (request) =>
+      String(request.id) === selectedRequestId
   );
 
-  setUnits((current) =>
-    current.map((unit) =>
-      unit.id === selectedUnit.id
-        ? { ...unit, status: 'ASSIGNED' }
-        : unit
-    )
-  );
+  try {
+    await api.assignResponseTask(
+      selectedUnit.id,
+      Number(selectedRequestId)
+    );
 
-  closeAssignModal();
+    setUnits((current) =>
+      current.map((unit) =>
+        unit.id === selectedUnit.id
+          ? {
+              ...unit,
+              status: 'ASSIGNED',
+            }
+          : unit
+      )
+    );
 
-  alert(
-    `Team ${selectedUnit.name} assigned to ${
-      selectedRequest?.tracking_code || `Request #${selectedRequestId}`
-    }.`
-  );
+    closeAssignModal();
+
+    alert(
+      `Team ${selectedUnit.name} assigned to ${
+        selectedRequest?.tracking_code ||
+        `Request #${selectedRequestId}`
+      }.`
+    );
+  } catch (error) {
+    console.error(
+      'ASSIGN RESPONSE TASK ERROR:',
+      error
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : 'Failed to assign response task.'
+    );
+  }
 };
 
 const filteredOperators = type
-  ? operators.filter(
-      (user) =>
-        user.organization_id ===
-        UNIT_TYPE_ORGANIZATION_MAP[type]
-    )
+  ? operators.filter((user) => {
+      const selectedType = String(type).trim().toUpperCase();
+
+      const userUnitType = String(
+        user.unit_type || ''
+      ).trim().toUpperCase();
+
+      // Match unit_type if available
+      if (userUnitType === selectedType) {
+        return true;
+      }
+
+      // Otherwise match organization
+      const organizationId =
+        UNIT_TYPE_ORGANIZATION_MAP[type];
+
+      return (
+        organizationId !== undefined &&
+        Number(user.organization_id) === organizationId
+      );
+    })
   : [];
-  const handleCreateUnit = (e: React.FormEvent) => {
+    
+   
+  const handleCreateUnit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (
@@ -195,31 +246,47 @@ const filteredOperators = type
       !type ||
       !location.trim() ||
       !members ||
-      !operator.trim()
-     
+      !operatorId
     ) {
       alert('Please fill in all required fields.');
       return;
     }
 
-    const newUnit: ResponseUnit = {
-      id: Date.now(),
-      name: name.trim(),
-      type,
-      location: location.trim(),
-      members: Number(members),
-      operator: operator.trim(),
-     
+    try {
+      const createdUnit = await api.createResponseUnit({
+        name: name.trim(),
+        unit_type: type,
+        location: location.trim(),
+        members: Number(members),
+        operator_id: Number(operatorId),
+      });
 
-      status: 'AVAILABLE',
-    };
+      const newUnit: ResponseUnit = {
+        id: createdUnit.id,
+        name: createdUnit.name,
+        type: createdUnit.unit_type,
+        location: createdUnit.location || '',
+        members: createdUnit.members,
+        operator: String(createdUnit.operator_id),
+        status: createdUnit.status,
+      };
 
-    setUnits((current) => [...current, newUnit]);
+      setUnits((current) => [...current, newUnit]);
 
-    resetForm();
-    setShowCreateForm(false);
+      resetForm();
+      setShowCreateForm(false);
+
+      alert(`Response team "${createdUnit.name}" created successfully.`);
+    } catch (error) {
+      console.error('CREATE RESPONSE UNIT ERROR:', error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Failed to create response team.'
+      );
+    }
   };
-
   const getStatusStyle = (status: UnitStatus) => {
     if (status === 'AVAILABLE') {
       return 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -685,7 +752,7 @@ const filteredOperators = type
               <div className="bg-white border border-slate-200 rounded-lg p-4">
                 <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Response Team</p>
                 <p className="text-sm font-bold text-navy mt-1">{selectedUnit.name}</p>
-                <p className="text-xs text-slate-500 mt-1">{selectedUnit.type} • {selectedUnit.members} members • {selectedUnit.operator}</p>
+                <p className="text-xs text-slate-500 mt-1">{selectedUnit.type} â€¢ {selectedUnit.members} members â€¢ {selectedUnit.operator}</p>
               </div>
 
               <div>
@@ -699,7 +766,7 @@ const filteredOperators = type
                     <option value="">Select approved request</option>
                     {approvedRequests.map((request) => (
                       <option key={request.id} value={request.id}>
-                        {request.tracking_code || `Request #${request.id}`}{request.location ? ` — ${request.location}` : ''}
+                        {request.tracking_code || `Request #${request.id}`}{request.location ? ` â€” ${request.location}` : ''}
                       </option>
                     ))}
                   </select>
@@ -724,3 +791,7 @@ const filteredOperators = type
 };
 
 export default ResponseUnitsPage;
+
+
+
+

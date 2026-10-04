@@ -209,6 +209,22 @@ export const Navbar: React.FC = () => {
       >
         My Requests
       </button>
+{/* RESPONSE UNIT OPERATOR */}
+
+{isAuthenticated &&
+ currentUser?.role === 'RESPONSE_UNIT_OPERATOR' && (
+  <button
+    onClick={() => setActiveTab('response-tasks')}
+    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+      activeTab === 'response-tasks'
+        ? 'bg-navy-800 text-ivory font-semibold'
+        : 'text-slate-light hover:text-ivory hover:bg-navy-800/60'
+    }`}
+  >
+    Tasks
+  </button>
+)}
+
 
       {/* OTHER AUTHENTICATED ROLES */}
 

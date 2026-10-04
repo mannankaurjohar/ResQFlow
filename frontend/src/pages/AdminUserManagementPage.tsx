@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Copy, RefreshCw, UserPlus } from 'lucide-react';
 import { useApp } from '../context/AppContext';
@@ -26,8 +27,12 @@ const AdminUserManagementPage: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [role, setRole] =
     useState<UserRole>('VOLUNTEER');
-const [organizationId, setOrganizationId] =
-  useState<number | ''>('');
+
+  const [organizationId, setOrganizationId] =
+    useState<number | ''>('');
+
+  const [unitType, setUnitType] = useState('');
+
   const [
     generatedCredentials,
     setGeneratedCredentials
@@ -87,6 +92,17 @@ const [organizationId, setOrganizationId] =
       return;
     }
 
+    if (
+      role === 'RESPONSE_UNIT_OPERATOR' &&
+      !unitType
+    ) {
+      showNotification(
+        'Please select a response unit type.',
+        'warning'
+      );
+      return;
+    }
+
     try {
       setCreating(true);
       setGeneratedCredentials(null);
@@ -95,8 +111,12 @@ const [organizationId, setOrganizationId] =
   full_name: fullName.trim(),
   phone: phone.trim() || undefined,
   role,
-  organization_id:
-  role === 'RESPONSE_UNIT_OPERATOR'
+  unit_type:
+    role === 'RESPONSE_UNIT_OPERATOR'
+      ? unitType
+      : undefined,
+ organization_id:
+  organizationId === ''
     ? undefined
     : Number(organizationId)
 });
@@ -109,10 +129,10 @@ const [organizationId, setOrganizationId] =
       });
 
       setFullName('');
-setPhone('');
-setRole('VOLUNTEER');
-setOrganizationId('');
-      
+      setPhone('');
+      setRole('VOLUNTEER');
+      setOrganizationId('');
+      setUnitType('');
 
       await loadUsers();
 
@@ -204,18 +224,28 @@ setOrganizationId('');
     switch (userRole) {
       case 'ADMIN':
         return 'Administrator';
+
       case 'EMERGENCY_COORDINATOR':
         return 'Emergency Coordinator';
+
       case 'COMMUNITY':
         return 'Community';
+
       case 'VOLUNTEER':
         return 'Volunteer';
+
       case 'NGO_MANAGER':
         return 'NGO Manager';
+
       case 'WAREHOUSE_MANAGER':
         return 'Warehouse Manager';
+
       case 'DONOR':
         return 'Donor';
+
+      case 'RESPONSE_UNIT_OPERATOR':
+        return 'Response Unit Operator';
+
       default:
         return userRole;
     }
@@ -266,6 +296,7 @@ setOrganizationId('');
               className="space-y-4"
             >
 
+              {/* Full Name */}
               <div>
                 <label className="block text-sm font-semibold text-navy mb-1.5">
                   Full Name
@@ -278,10 +309,11 @@ setOrganizationId('');
                     setFullName(e.target.value)
                   }
                   placeholder="Enter full name"
-                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta"
+                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta focus:ring-1 focus:ring-terracotta"
                 />
               </div>
 
+              {/* Phone */}
               <div>
                 <label className="block text-sm font-semibold text-navy mb-1.5">
                   Phone
@@ -294,10 +326,11 @@ setOrganizationId('');
                     setPhone(e.target.value)
                   }
                   placeholder="Optional"
-                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta"
+                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta focus:ring-1 focus:ring-terracotta"
                 />
               </div>
 
+              {/* Role */}
               <div>
                 <label className="block text-sm font-semibold text-navy mb-1.5">
                   Role
@@ -305,12 +338,20 @@ setOrganizationId('');
 
                 <select
                   value={role}
-                  onChange={e =>
-                    setRole(
-                      e.target.value as UserRole
-                    )
-                  }
-                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta bg-white"
+                  onChange={e => {
+                    const selectedRole =
+                      e.target.value as UserRole;
+
+                    setRole(selectedRole);
+
+                    if (
+                      selectedRole !==
+                      'RESPONSE_UNIT_OPERATOR'
+                    ) {
+                      setUnitType('');
+                    }
+                  }}
+                  className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta focus:ring-1 focus:ring-terracotta bg-white"
                 >
                   <option value="EMERGENCY_COORDINATOR">
                     Emergency Coordinator
@@ -331,50 +372,64 @@ setOrganizationId('');
                   <option value="WAREHOUSE_MANAGER">
                     Warehouse Manager
                   </option>
-<option value="RESPONSE_UNIT_OPERATOR">
-  Response Unit Operator
-</option>
+
+                  <option value="RESPONSE_UNIT_OPERATOR">
+                    Response Unit Operator
+                  </option>
                 </select>
               </div>
-{role === 'RESPONSE_UNIT_OPERATOR' && (
-  <div>
-    <label className="block text-sm font-semibold text-navy mb-1.5">
-      Organization / Agency
-    </label>
 
-    <select
-      value={organizationId}
-      onChange={e =>
-        setOrganizationId(
-          e.target.value
-            ? Number(e.target.value)
-            : ''
-        )
-      }
-      required
-      className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta bg-white"
-    >
-      <option value="">
-        Select organization / agency
-      </option>
+              {/* Response Unit Type */}
+              {role === 'RESPONSE_UNIT_OPERATOR' && (
+                <div>
+                  <label className="block text-sm font-semibold text-navy mb-1.5">
+                    Response Unit Type
+                  </label>
 
-      <option value="1">NDRF</option>
-      <option value="2">SDRF</option>
-      <option value="3">Fire & Rescue</option>
-      <option value="4">Police / Emergency</option>
-      <option value="5">
-        Aapda Mitra / Authorized Local Team
-      </option>
-      <option value="6">
-        Other Authorized Unit
-      </option>
-    </select>
-  </div>
-)}
+                  <select
+                    value={unitType}
+                    onChange={e =>
+                      setUnitType(e.target.value)
+                    }
+                    required
+                    className="w-full rounded-xl border border-navy/15 px-3 py-2.5 text-sm outline-none focus:border-terracotta focus:ring-1 focus:ring-terracotta bg-white"
+                  >
+                    <option value="">
+                      Select response unit type
+                    </option>
+
+                    <option value="SDRF">
+                      SDRF
+                    </option>
+
+                    <option value="NDRF">
+                      NDRF
+                    </option>
+
+                    <option value="Fire & Rescue">
+                      Fire & Rescue
+                    </option>
+
+                    <option value="Police / Emergency">
+                      Police / Emergency
+                    </option>
+
+                    <option value="Aapda Mitra / Authorized Local Team">
+                      Aapda Mitra / Authorized Local Team
+                    </option>
+
+                    <option value="Other Authorized Unit">
+                      Other Authorized Unit
+                    </option>
+                  </select>
+                </div>
+              )}
+
+              {/* Generate Account */}
               <button
                 type="submit"
                 disabled={creating}
-                className="w-full rounded-xl bg-navy text-white py-3 text-sm font-bold hover:bg-navy/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full rounded-xl bg-navy text-white py-3 text-sm font-bold hover:bg-navy/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {creating
                   ? 'Generating Account...'
@@ -560,6 +615,13 @@ setOrganizationId('');
                       <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                         {roleLabel(user.role)}
                       </span>
+
+                      {user.role === 'RESPONSE_UNIT_OPERATOR' &&
+                        user.unit_type && (
+                          <span className="ml-2 inline-flex rounded-full bg-terracotta/10 px-2.5 py-1 text-xs font-semibold text-terracotta">
+                            {user.unit_type}
+                          </span>
+                        )}
                     </td>
 
                     <td className="px-6 py-4 text-right">

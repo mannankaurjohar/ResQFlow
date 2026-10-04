@@ -19,6 +19,10 @@ from app.routers import (
     analytics_router, audit_router
 )
 from app.routers.admin_router import router as admin_router
+from app.routers.response_units_router import router as response_units_router
+from .routers import auth_router
+from .routers import requests_router
+from .routers import inventory_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables & seed data
@@ -161,6 +165,15 @@ app.include_router(
     prefix="/api"
 )
 app.include_router(admin_router, prefix="/api")
+
+
+
+app.include_router(
+    response_units_router,
+    prefix=settings.API_V1_STR,
+)
+
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os

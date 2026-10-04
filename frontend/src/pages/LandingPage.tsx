@@ -6,10 +6,15 @@ import {
   ArrowRight,
   Radio,
    Bell,
+   Presentation,
 } from 'lucide-react';
 
 export const LandingPage: React.FC = () => {
-  const { setActiveTab } = useApp();
+  const {
+  setActiveTab,
+  setJudgeMode,
+  setJudgeModeStep
+} = useApp();
 
   return (
     <div className="space-y-16 pb-12">
@@ -38,6 +43,17 @@ export const LandingPage: React.FC = () => {
 
           {/* Public Emergency Actions */}
           <div className="mt-8 flex flex-wrap items-center gap-4">
+            <button
+  onClick={() => {
+  setJudgeModeStep(0);
+  setJudgeMode(true);
+  setActiveTab('judge-mode');
+}}
+  className="bg-ivory hover:bg-ivory-100 text-navy font-bold px-6 py-3.5 rounded-lg shadow-card text-sm flex items-center space-x-2 transition-all"
+>
+  <Presentation className="w-4 h-4 text-terracotta" />
+  <span>Judge Mode — View Demo</span>
+</button>
             <button
               onClick={() => setActiveTab('evacuation')}
               className="bg-terracotta hover:bg-terracotta-hover text-white font-bold px-6 py-3.5 rounded-lg shadow-card text-sm flex items-center space-x-2 transition-all"

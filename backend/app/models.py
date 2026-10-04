@@ -63,6 +63,10 @@ class Organization(Base):
     org_type = Column(String(50), nullable=False) # NGO, WAREHOUSE, Emergency Coordinator, RELIEF_CAMP
     contact_person = Column(String(100), nullable=True)
     phone = Column(String(50), nullable=True)
+    unit_type = Column(
+    String(100),
+    nullable=True
+)
     email = Column(String(100), nullable=True)
     address = Column(String(255), nullable=True)
     latitude = Column(Float, nullable=True)
@@ -120,7 +124,7 @@ class User(Base):
         String(50),
         nullable=True
     )
-
+    unit_type = Column(String(100), nullable=True)
     # Internal account access control.
     # This will NOT be displayed as Active/Inactive
     # in the Admin Users page.

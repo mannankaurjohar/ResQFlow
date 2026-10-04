@@ -1,4 +1,4 @@
-import datetime
+﻿import datetime
 from typing import List, Optional, Any, Dict
 from pydantic import BaseModel, EmailStr, Field
 from app.models import UserRole, SeverityLevel, RequestStatus, ReliefStatus
@@ -19,6 +19,7 @@ class UserResponse(BaseModel):
     role: UserRole
     organization_id: Optional[int] = None
     phone: Optional[str] = None
+    unit_type: Optional[str] = None
     is_active: bool
 
     # Used by the Admin Users page to determine
@@ -55,7 +56,7 @@ class WorkerCreate(BaseModel):
     email: Optional[EmailStr] = None
     organization_id: Optional[int] = None
     assigned_warehouse_id: Optional[int] = None
-
+    unit_type: str | None = None
 
 class WorkerCreateResponse(BaseModel):
     user: UserResponse
@@ -133,6 +134,7 @@ class CommunityRequestCreate(BaseModel):
     location_name: str
     zone_id: Optional[int] = None
     latitude: float
+    request_type: Optional[str] = "SUPPLIES"
     longitude: float
     affected_people: int = 1
     affected_households: int = 1
