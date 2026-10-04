@@ -23,34 +23,12 @@ from app.routers.admin_router import router as admin_router
 async def lifespan(app: FastAPI):
     # Startup: Create tables & seed data
     print("ResQFlow AI Backend initializing...")
+
     Base.metadata.create_all(bind=engine)
-        # TEMPORARY AUTH/DB DIAGNOSTIC
-    from app.models import User
-    from app.auth import verify_password
 
-    db = SessionLocal()
-    try:
-        admin = db.query(User).filter(
-            User.username == "system_admin"
-        ).first()
-
-        print("========== RESQFLOW AUTH DIAGNOSTIC ==========")
-        print("DATABASE URL PREFIX:", settings.DATABASE_URL.split("@")[0].split(":")[:3])
-        print("ADMIN FOUND:", bool(admin))
-
-        if admin:
-            print("ADMIN ROLE:", admin.role)
-            print("ADMIN ACTIVE:", admin.is_active)
-            print(
-                "ADMIN PASSWORD MATCH:",
-                verify_password("password", admin.hashed_password)
-            )
-
-        print("===============================================")
-    finally:
-        db.close()
     if "sqlite" in settings.DATABASE_URL:
         with engine.begin() as connection:
+
             columns = {
                 row[1]
                 for row in connection.execute(
@@ -85,7 +63,8 @@ async def lifespan(app: FastAPI):
                         )
                     )
                     print(f"Added citizen column: {column_name}")
-                        # -------------------------------------------------
+
+            # -------------------------------------------------
             # USER ACCOUNT MIGRATION
             # -------------------------------------------------
             user_columns = {
@@ -110,13 +89,20 @@ async def lifespan(app: FastAPI):
                         )
                     )
                     print(f"Added user account column: {column_name}")
-        db = SessionLocal()
-        try:
-            seed_all_data(db)
-        finally:
-            db.close()
+
+    # -------------------------------------------------
+    # SEED DATA — RUNS FOR SQLITE AND POSTGRESQL
+    # -------------------------------------------------
+    db = SessionLocal()
+    try:
+        seed_all_data(db)
+    finally:
+        db.close()
+
     print("ResQFlow AI Backend is ready for emergency response.")
+
     yield
+
     # Shutdown
     print("ResQFlow AI Backend stopping.")
 
