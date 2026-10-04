@@ -96,9 +96,9 @@ const [organizationId, setOrganizationId] =
   phone: phone.trim() || undefined,
   role,
   organization_id:
-    role === 'RESPONSE_UNIT_OPERATOR'
-      ? Number(organizationId)
-      : undefined
+  role === 'RESPONSE_UNIT_OPERATOR'
+    ? undefined
+    : Number(organizationId)
 });
 
       setGeneratedCredentials({
