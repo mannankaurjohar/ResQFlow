@@ -14,7 +14,8 @@ interface GeneratedCredentials {
 const AdminUserManagementPage: React.FC = () => {
   const {
     currentUser,
-    showNotification
+    showNotification,
+     judgeMode
   } = useApp();
 
   const [users, setUsers] = useState<User[]>([]);
@@ -58,12 +59,12 @@ const AdminUserManagementPage: React.FC = () => {
   };
 
   useEffect(() => {
-    if (currentUser?.role === 'ADMIN') {
+    if (currentUser?.role === 'ADMIN'|| judgeMode) {
       loadUsers();
     }
-  }, [currentUser]);
+  }, [currentUser, judgeMode]);
 
-  if (currentUser?.role !== 'ADMIN') {
+  if (currentUser?.role !== 'ADMIN' && !judgeMode) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
@@ -625,7 +626,7 @@ const AdminUserManagementPage: React.FC = () => {
                     </td>
 
                     <td className="px-6 py-4 text-right">
-                      {user.id === currentUser.id ? (
+                      {currentUser && user.id === currentUser.id ? (
                         <span className="text-xs text-slate-400">
                           Current account
                         </span>

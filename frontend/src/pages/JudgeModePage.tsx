@@ -187,7 +187,7 @@ const steps: JudgeStep[] = [
     description:
       'Live Alerts provides responders with immediate visibility into important disaster signals and emerging situations, helping authorities adapt their response as conditions change.',
     icon: BellRing,
-    tab: 'alerts',
+    tab: 'flood-alerts',
     accent: 'red',
     points: [
       'Real-time disaster awareness',
