@@ -79,8 +79,16 @@ if (judgeMode && activeTab === 'judge-mode') {
 
       <EmergencyBanner />
 
-      <main className="flex-1 py-4">
-
+      <main
+  className={`flex-1 ${
+    judgeMode && activeTab !== 'judge-mode'
+      ? 'pb-32'
+      : ''
+  }`}
+>
+ {judgeMode && activeTab !== 'judge-mode' && (
+    <JudgeModePage />
+  )}
         {activeTab === 'landing' && (
           <LandingPage />
         )}
@@ -137,9 +145,7 @@ if (judgeMode && activeTab === 'judge-mode') {
 {activeTab === 'admin-users' && (
   <AdminUserManagementPage />
 )}
-{judgeMode && (
-  <JudgeModePage />
-)}
+
       </main>
 
       <ExplainPriorityModal />

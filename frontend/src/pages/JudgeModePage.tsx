@@ -327,9 +327,10 @@ const JudgeModePage: React.FC = () => {
    * Persistent Judge Mode controller while viewing
    * a real ResQFlow module.
    */
-  return (
-    <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-[min(900px,calc(100%-32px))]">
-      <div className="bg-navy text-ivory rounded-2xl shadow-elevated border border-white/10 px-4 py-3">
+
+return (
+<div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[9999] w-[min(900px,calc(100%-32px))]">
+    <div className="bg-navy text-ivory rounded-2xl shadow-elevated border border-white/10 px-4 py-3">
 
         <div className="flex flex-col md:flex-row md:items-center gap-3">
 
