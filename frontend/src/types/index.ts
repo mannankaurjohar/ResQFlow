@@ -1,12 +1,12 @@
 export type UserRole = 
-  | 'AUTHORITY'
+  | 'EMERGENCY_COORDINATOR'
   | 'VOLUNTEER'
   | 'NGO_MANAGER'
   | 'WAREHOUSE_MANAGER'
   | 'DONOR'
   | 'COMMUNITY'
-  | 'ADMIN';
-
+  | 'ADMIN'
+  | 'RESPONSE_UNIT_OPERATOR';
 export type SeverityLevel = 'LOW' | 'MEDIUM' | 'MODERATE' | 'HIGH' | 'CRITICAL' | 'SEVERE';
 
 export type RequestStatus = 
@@ -36,6 +36,7 @@ export interface User {
   full_name: string;
   role: UserRole;
   phone?: string;
+  organization_id?: number;
 }
 
 export interface ExtractedItem {
@@ -293,27 +294,59 @@ export interface GisOverviewData {
 }
 
 export interface AnalyticsData {
-  people_affected: number;
-  people_assisted: number;
   total_requests: number;
+  supply_requests: number;
+  evacuation_requests: number;
+  community_reports: number;
+
   fulfilled_requests: number;
   critical_requests_pending: number;
   fulfillment_rate_pct: number;
   active_deliveries: number;
-  average_response_time_mins: number;
-  average_delivery_time_mins: number;
-  supply_demand_gap: Array<{
+
+  people_affected: number;
+  people_assisted: number;
+
+  children_affected: number;
+  elderly_affected: number;
+  infants_affected: number;
+  pregnant_affected: number;
+
+  medical_emergency_requests: number;
+  immediate_danger_requests: number;
+
+  average_response_time_mins: number | null;
+  average_delivery_time_mins: number | null;
+
+  status_breakdown: Record<string, number>;
+  priority_breakdown: Record<string, number>;
+
+  supply_demand_gap: {
     category: string;
     demand: number;
+    fulfilled: number;
     available: number;
     gap: number;
     fulfillment_pct: number;
-  }>;
-  resources_distributed: Array<{
+  }[];
+
+  resources_distributed: {
     item: string;
     quantity: number;
     unit: string;
-  }>;
+  }[];
+
+  request_trend: {
+    date: string;
+    requests: number;
+  }[];
+
+  location_breakdown: {
+    location: string;
+    requests: number;
+    people: number;
+  }[];
+
   simulation_escalated: boolean;
 }
 

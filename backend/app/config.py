@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 class Settings:
-    PROJECT_NAME: str = "ResQFlow AI"
+    PROJECT_NAME: str = "ResQFlow"
     API_V1_STR: str = "/api"
 
     SECRET_KEY: str = os.getenv(

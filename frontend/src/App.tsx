@@ -1,11 +1,19 @@
 import React, { useEffect } from 'react';
-import { AppProvider, useApp } from './context/AppContext';
+import AdminUserManagementPage from './pages/AdminUserManagementPage';
+import {
+  AppProvider,
+  useApp
+} from './context/AppContext';
+import FloodAlertsPage from './pages/FloodAlertsPage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { EmergencyBanner } from './components/EmergencyBanner';
 import { ExplainPriorityModal } from './components/ExplainPriorityModal';
 import { AiMatchingModal } from './components/AiMatchingModal';
-
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import LoginPage from './pages/LoginPage';
+import ChangePasswordPage from './pages/ChangePasswordPage';
+import AdminSettingsPage from './pages/AdminSettingsPage';
 import { LandingPage } from './pages/LandingPage';
 import { AuthorityCommandPage } from './pages/AuthorityCommandPage';
 import { CommunityReportPage } from './pages/CommunityReportPage';
@@ -15,18 +23,37 @@ import { DonorPortalPage } from './pages/DonorPortalPage';
 import { VolunteerDeskPage } from './pages/VolunteerDeskPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { AuditTrailPage } from './pages/AuditTrailPage';
-
+import EvacuationRequestPage from './pages/EvacuationRequestPage';
+import MyRequestsPage from './pages/MyRequestsPage';
+import SignUpPage from './pages/SignUpPage';
+import ResponseUnitsPage from './pages/ResponseUnitsPage';
+import ResponseAssignmentPage from './pages/ResponseAssignmentPage';
 const AppContent: React.FC = () => {
-  const { activeTab, notification } = useApp();
+  const {
+    activeTab,
+    notification
+  } = useApp();
 
-  // Scroll to the top whenever the user changes to another page
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
   }, [activeTab]);
+
+  if (activeTab === 'login') {
+    return <LoginPage />;
+  }
+
+  if (
+    activeTab === 'change-password'
+  ) {
+    return <ChangePasswordPage />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-ivory text-navy font-sans antialiased">
-      {/* Toast Notification Alert Banner */}
+
       {notification && (
         <div
           className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-elevated border text-xs font-semibold max-w-md animate-in slide-in-from-bottom-5 duration-200 ${
@@ -43,31 +70,72 @@ const AppContent: React.FC = () => {
         </div>
       )}
 
-      {/* Top Navbar */}
       <Navbar />
 
-      {/* Emergency Mode Notification Banner */}
       <EmergencyBanner />
 
-      {/* Main Routed Content View */}
       <main className="flex-1 py-4">
-        {activeTab === 'landing' && <LandingPage />}
-        {activeTab === 'command' && <AuthorityCommandPage />}
-        {activeTab === 'report' && <CommunityReportPage />}
-        {activeTab === 'trace' && <TraceReliefPage />}
-        {activeTab === 'warehouse' && <NgoWarehousePage />}
-        {activeTab === 'donor' && <DonorPortalPage />}
-        {activeTab === 'volunteer' && <VolunteerDeskPage />}
-        {activeTab === 'analytics' && <AnalyticsPage />}
-        {activeTab === 'audit' && <AuditTrailPage />}
+
+        {activeTab === 'landing' && (
+          <LandingPage />
+        )}
+        {activeTab === 'flood-alerts' && (
+  <FloodAlertsPage />
+)}
+        {activeTab === 'command' && (
+          <AuthorityCommandPage />
+        )}
+{activeTab === 'response-units' && (
+  <ResponseUnitsPage />
+)}
+{activeTab === 'response-assignment' && (
+  <ResponseAssignmentPage />
+)}
+        {activeTab === 'report' && (
+          <CommunityReportPage />
+        )}
+
+        {activeTab === 'trace' && (
+          <TraceReliefPage />
+        )}
+{activeTab === 'admin-settings' && (
+  <AdminSettingsPage />
+)}
+        {activeTab === 'warehouse' && (
+          <NgoWarehousePage />
+        )}
+{activeTab === 'my-requests' && (
+  <MyRequestsPage />
+)}
+        {activeTab === 'donor' && (
+          <DonorPortalPage />
+        )}
+{activeTab === 'evacuation' && <EvacuationRequestPage />}
+        {activeTab === 'volunteer' && (
+          <VolunteerDeskPage />
+        )}
+{activeTab === 'signup' && (
+  <SignUpPage />
+)}
+        {activeTab === 'analytics' && (
+          <AnalyticsPage />
+        )}
+{activeTab === 'admin-dashboard' && (
+  <AdminDashboardPage />
+)}
+        {activeTab === 'audit' && (
+          <AuditTrailPage />
+        )}
+{activeTab === 'admin-users' && (
+  <AdminUserManagementPage />
+)}
       </main>
 
-      {/* Modals */}
       <ExplainPriorityModal />
       <AiMatchingModal />
 
-      {/* Humanitarian Footer */}
       <Footer />
+
     </div>
   );
 };

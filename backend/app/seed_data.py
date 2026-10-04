@@ -1,4 +1,5 @@
 import json
+import os
 from sqlalchemy.orm import Session
 
 from app.database import Base, engine
@@ -507,6 +508,67 @@ def seed_all_data(db: Session, force_reset: bool = False):
     # ---------------------------------------------------------
 
     if db.query(User).first() and not force_reset:
+
+        existing_admin = db.query(User).filter(
+            User.username == os.getenv(
+                "INITIAL_ADMIN_USERNAME",
+                "system_admin"
+            )
+        ).first()
+
+        if not existing_admin:
+
+            admin_username = os.getenv(
+                "INITIAL_ADMIN_USERNAME",
+                "system_admin"
+            )
+
+            admin_password = os.getenv(
+                "INITIAL_ADMIN_PASSWORD"
+            )
+
+            admin_email = os.getenv(
+                "INITIAL_ADMIN_EMAIL",
+                "admin@resqflow.org"
+            )
+
+            if not admin_password:
+                raise RuntimeError(
+                    "INITIAL_ADMIN_PASSWORD must be set"
+                )
+
+            org_auth = db.query(Organization).filter(
+                Organization.org_type == "Emergency Coordinator"
+            ).first()
+
+            if not org_auth:
+                org_auth = Organization(
+                    name="State Disaster Management Authority (SDMA)",
+                    org_type="AUTHORITY",
+                    contact_person="Command Authority",
+                    email="command@sdma.gov.in",
+                    latitude=14.4700,
+                    longitude=75.2800,
+                )
+
+                db.add(org_auth)
+                db.flush()
+
+            admin = User(
+                username=admin_username,
+                email=admin_email,
+                hashed_password=get_password_hash(admin_password),
+                full_name="System Administrator",
+                role=UserRole.ADMIN,
+                organization_id=org_auth.id,
+                phone=None,
+            )
+
+            db.add(admin)
+            db.commit()
+
+            print(f"Created initial admin account: {admin_username}")
+
         seed_nashik_warehouse_data(db)
         db.commit()
 
@@ -561,73 +623,41 @@ def seed_all_data(db: Session, force_reset: bool = False):
     # password123
     # ---------------------------------------------------------
 
-    hashed_pwd = get_password_hash("password123")
+ 
 
-    users = [
-        User(
-            username="authority_admin",
-            email="authority@resqflow.org",
-            hashed_password=hashed_pwd,
-            full_name="Command Officer",
-            role=UserRole.AUTHORITY,
-            organization_id=org_auth.id,
-            phone=None,
+    initial_admin_username = os.getenv(
+        "INITIAL_ADMIN_USERNAME",
+        "system_admin"
+    )
+
+    initial_admin_password = os.getenv(
+        "INITIAL_ADMIN_PASSWORD"
+    )
+
+    initial_admin_email = os.getenv(
+        "INITIAL_ADMIN_EMAIL",
+        "admin@resqflow.org"
+    )
+
+    if not initial_admin_password:
+        raise RuntimeError(
+            "INITIAL_ADMIN_PASSWORD must be set"
+        )
+
+    admin = User(
+        username=initial_admin_username,
+        email=initial_admin_email,
+        hashed_password=get_password_hash(
+            initial_admin_password
         ),
+        full_name="System Administrator",
+        role=UserRole.ADMIN,
+        organization_id=org_auth.id,
+        phone=None,
+    )
 
-        User(
-            username="volunteer_lead",
-            email="volunteer@resqflow.org",
-            hashed_password=hashed_pwd,
-            full_name="Field Volunteer",
-            role=UserRole.VOLUNTEER,
-            organization_id=org_ngo1.id,
-            phone=None,
-        ),
-
-        User(
-            username="ngo_coordinator",
-            email="ngo@resqflow.org",
-            hashed_password=hashed_pwd,
-            full_name="NGO Coordinator",
-            role=UserRole.NGO_MANAGER,
-            organization_id=org_ngo1.id,
-            phone=None,
-        ),
-
-        User(
-            username="donor_user",
-            email="donor@resqflow.org",
-            hashed_password=hashed_pwd,
-            full_name="Donor User",
-            role=UserRole.DONOR,
-            organization_id=None,
-            phone=None,
-        ),
-
-        User(
-            username="citizen_user",
-            email="citizen@resqflow.org",
-            hashed_password=hashed_pwd,
-            full_name="Community User",
-            role=UserRole.COMMUNITY,
-            organization_id=None,
-            phone=None,
-        ),
-
-        User(
-            username="system_admin",
-            email="admin@resqflow.org",
-            hashed_password=hashed_pwd,
-            full_name="System Administrator",
-            role=UserRole.ADMIN,
-            organization_id=org_auth.id,
-            phone=None,
-        ),
-    ]
-
-    db.add_all(users)
+    db.add(admin)
     db.flush()
-
     # ---------------------------------------------------------
     # 3. Active Disaster Event
     # ---------------------------------------------------------

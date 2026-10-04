@@ -42,7 +42,7 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
 def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Optional[User]:
     if not token:
         # Fallback default authority demo user if unauthenticated for smooth hackathon demo testing
-        return db.query(User).filter(User.username == "authority_admin").first()
+        return db.query(User).filter(User.username == "emergency_coordinator").first()
     
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])

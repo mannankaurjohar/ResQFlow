@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from sqlalchemy import text
+from app.routers.flood_alerts_router import router as flood_alerts_router
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -17,7 +18,7 @@ from app.routers import (
     allocations_router, deliveries_router, gis_router, simulation_router,
     analytics_router, audit_router
 )
-
+from app.routers.admin_router import router as admin_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup: Create tables & seed data
@@ -59,6 +60,31 @@ async def lifespan(app: FastAPI):
                         )
                     )
                     print(f"Added citizen column: {column_name}")
+                        # -------------------------------------------------
+            # USER ACCOUNT MIGRATION
+            # -------------------------------------------------
+            user_columns = {
+                row[1]
+                for row in connection.execute(
+                    text("PRAGMA table_info(users)")
+                ).fetchall()
+            }
+
+            account_columns = {
+                "last_seen_at": "DATETIME",
+                "password_reset_required": "BOOLEAN DEFAULT 0",
+                "assigned_warehouse_id": "INTEGER",
+            }
+
+            for column_name, definition in account_columns.items():
+                if column_name not in user_columns:
+                    connection.execute(
+                        text(
+                            f"ALTER TABLE users "
+                            f"ADD COLUMN {column_name} {definition}"
+                        )
+                    )
+                    print(f"Added user account column: {column_name}")
         db = SessionLocal()
         try:
             seed_all_data(db)
@@ -119,6 +145,11 @@ app.include_router(
     official_warehouses_router,
     prefix="/api"
 )
+app.include_router(
+    flood_alerts_router,
+    prefix="/api"
+)
+app.include_router(admin_router, prefix="/api")
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os

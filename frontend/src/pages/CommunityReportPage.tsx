@@ -65,8 +65,7 @@ export const CommunityReportPage: React.FC = () => {
   const [vulnerableChildren, setVulnerableChildren] =
     useState<number | ''>('');
 
-  const [urgency, setUrgency] =
-    useState('');
+  
 
   const [reporterName, setReporterName] =
     useState('');
@@ -169,9 +168,7 @@ export const CommunityReportPage: React.FC = () => {
       );
 
 
-      setUrgency(
-        parsed.urgency
-      );
+      
 
 
       /*
@@ -399,19 +396,9 @@ export const CommunityReportPage: React.FC = () => {
     }
 
 
-    // ----------------------------------------------------------
-    // URGENCY
-    // ----------------------------------------------------------
+    
 
-    if (!urgency) {
-
-      showNotification(
-        'Please select an urgency level.',
-        'error'
-      );
-
-      return;
-    }
+    
 
 
     // ----------------------------------------------------------
@@ -511,8 +498,7 @@ export const CommunityReportPage: React.FC = () => {
           vulnerable_children:
             Number(vulnerableChildren),
 
-          urgency:
-            urgency,
+          
 
           raw_description:
             nlText.trim(),
@@ -728,7 +714,7 @@ export const CommunityReportPage: React.FC = () => {
 
                 setVulnerableChildren('');
 
-                setUrgency('');
+               
 
                 setReporterName('');
 
@@ -759,7 +745,7 @@ export const CommunityReportPage: React.FC = () => {
             <button
               type="button"
               onClick={() =>
-                setActiveTab('command')
+                setActiveTab('trace')
               }
               className="
                 bg-navy
@@ -772,7 +758,7 @@ export const CommunityReportPage: React.FC = () => {
                 text-xs
               "
             >
-              View Operations Map
+              Trace Relief
             </button>
 
           </div>
@@ -882,8 +868,8 @@ export const CommunityReportPage: React.FC = () => {
             text-xs
             text-slate
           ">
-            AI extracts location,
-            population and urgency
+            AI extracts location 
+            and population
           </span>
 
         </div>
@@ -1080,17 +1066,7 @@ export const CommunityReportPage: React.FC = () => {
               </div>
 
 
-              <div>
-                Urgency:
-                {' '}
-                <b className="
-                  text-red-700
-                ">
-                  {
-                    aiUnderstanding.urgency
-                  }
-                </b>
-              </div>
+             
 
             </div>
 
@@ -1202,66 +1178,7 @@ export const CommunityReportPage: React.FC = () => {
           </div>
 
 
-          {/* ==================================================
-              URGENCY
-          =================================================== */}
-
-          <div>
-
-            <label className="
-              block
-              font-semibold
-              text-slate-dark
-              mb-1
-            ">
-              Assessed Urgency Level
-            </label>
-
-
-            <select
-              value={urgency}
-              onChange={e =>
-                setUrgency(
-                  e.target.value
-                )
-              }
-              className="
-                w-full
-                bg-white
-                border
-                border-slate/30
-                rounded-lg
-                px-3
-                py-2
-                text-navy
-                focus:outline-none
-                focus:border-terracotta
-              "
-            >
-
-              <option value="">
-                Select urgency level
-              </option>
-
-              <option value="LOW">
-                Low
-              </option>
-
-              <option value="MEDIUM">
-                Medium
-              </option>
-
-              <option value="HIGH">
-                High
-              </option>
-
-              <option value="CRITICAL">
-                Critical
-              </option>
-
-            </select>
-
-          </div>
+          
 
 
           {/* ==================================================

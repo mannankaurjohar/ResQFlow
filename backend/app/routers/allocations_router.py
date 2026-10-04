@@ -411,10 +411,10 @@ def create_procurement_manifest(
         actor_name=(
             current_user.full_name
             if current_user
-            else "Authority Commander"
+            else "Emergency Coordinator"
         ),
 
-        actor_role="AUTHORITY",
+        actor_role="EMERGENCY_COORDINATOR",
 
         action=
             "CREATE_PROCUREMENT_MANIFEST",
@@ -1149,11 +1149,11 @@ def approve_allocation(
         actor_name=(
             current_user.full_name
             if current_user
-            else "Authority Commander"
+            else "Emergency Coordinator"
         ),
 
         actor_role=
-            "AUTHORITY",
+            "EMERGENCY COORDINATOR",
 
         action=
             "APPROVE_MULTI_WAREHOUSE_ALLOCATION",

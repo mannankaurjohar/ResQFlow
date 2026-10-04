@@ -57,10 +57,7 @@ def list_donations(
 )
 def create_donation(
     donation_in: DonationCreate,
-    db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(
-        get_current_user
-    )
+    db: Session = Depends(get_db)
 ):
     count = (
         db.query(Donation).count()
@@ -75,11 +72,7 @@ def create_donation(
     )
 
     donation = Donation(
-        donor_id=(
-            current_user.id
-            if current_user
-            else None
-        ),
+        donor_id=None,
         donor_name=
             donation_in.donor_name,
         donor_email=
@@ -121,11 +114,7 @@ def create_donation(
 
     log_audit_event(
         db=db,
-        actor_id=(
-            current_user.id
-            if current_user
-            else None
-        ),
+        actor_id=None,
         actor_name=
             donation.donor_name,
         actor_role=

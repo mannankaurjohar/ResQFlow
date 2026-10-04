@@ -11,12 +11,14 @@ from app.database import Base
 
 
 class UserRole(str, enum.Enum):
-    AUTHORITY = "AUTHORITY"
+    EMERGENCY_COORDINATOR = "EMERGENCY_COORDINATOR"
+
     VOLUNTEER = "VOLUNTEER"
     NGO_MANAGER = "NGO_MANAGER"
     WAREHOUSE_MANAGER = "WAREHOUSE_MANAGER"
     DONOR = "DONOR"
     COMMUNITY = "COMMUNITY"
+    RESPONSE_UNIT_OPERATOR = "RESPONSE_UNIT_OPERATOR"
     ADMIN = "ADMIN"
 
 class DisasterType(str, enum.Enum):
@@ -58,7 +60,7 @@ class Organization(Base):
     __tablename__ = "organizations"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(120), nullable=False)
-    org_type = Column(String(50), nullable=False) # NGO, WAREHOUSE, AUTHORITY, RELIEF_CAMP
+    org_type = Column(String(50), nullable=False) # NGO, WAREHOUSE, Emergency Coordinator, RELIEF_CAMP
     contact_person = Column(String(100), nullable=True)
     phone = Column(String(50), nullable=True)
     email = Column(String(100), nullable=True)
@@ -72,19 +74,219 @@ class Organization(Base):
 
 class User(Base):
     __tablename__ = "users"
+
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String(60), unique=True, index=True, nullable=False)
-    email = Column(String(120), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
-    full_name = Column(String(100), nullable=False)
-    role = Column(SQLEnum(UserRole), default=UserRole.COMMUNITY, nullable=False)
-    organization_id = Column(Integer, ForeignKey("organizations.id"), nullable=True)
-    phone = Column(String(50), nullable=True)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(IST))
 
-    organization = relationship("Organization", back_populates="users")
+    # Login ID
+    username = Column(
+        String(60),
+        unique=True,
+        index=True,
+        nullable=False
+    )
 
+    email = Column(
+        String(120),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+
+    # Password is always stored as a hash
+    hashed_password = Column(
+        String(255),
+        nullable=False
+    )
+
+    # Worker information
+    full_name = Column(
+        String(100),
+        nullable=False
+    )
+
+    role = Column(
+        SQLEnum(UserRole),
+        default=UserRole.COMMUNITY,
+        nullable=False
+    )
+
+    organization_id = Column(
+        Integer,
+        ForeignKey("organizations.id"),
+        nullable=True
+    )
+
+    phone = Column(
+        String(50),
+        nullable=True
+    )
+
+    # Internal account access control.
+    # This will NOT be displayed as Active/Inactive
+    # in the Admin Users page.
+    is_active = Column(
+        Boolean,
+        default=True
+    )
+
+    # Used later to determine Online / Offline status.
+    last_seen_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    # True when Admin creates/resets an account.
+    # Worker will be required to change the temporary password.
+    password_reset_required = Column(
+        Boolean,
+        default=False
+    )
+
+    # Used only for Warehouse Managers.
+    # Admin assigns the manager to one warehouse.
+    assigned_warehouse_id = Column(
+        Integer,
+        ForeignKey("warehouses.id"),
+        nullable=True
+    )
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(IST)
+    )
+
+    organization = relationship(
+        "Organization",
+        back_populates="users"
+    )
+class ResponseUnit(Base):
+    __tablename__ = "response_units"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    name = Column(
+        String(120),
+        nullable=False
+    )
+
+    unit_type = Column(
+        String(80),
+        nullable=False
+    )
+
+    location = Column(
+        String(150),
+        nullable=True
+    )
+
+    members = Column(
+        Integer,
+        default=1
+    )
+
+    operator_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    status = Column(
+        String(30),
+        default="AVAILABLE",
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(IST)
+    )
+
+    operator = relationship(
+        "User",
+        foreign_keys=[operator_id]
+    )
+
+    assignments = relationship(
+        "ResponseAssignment",
+        back_populates="response_unit"
+    )
+class ResponseAssignment(Base):
+    __tablename__ = "response_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    request_id = Column(
+        Integer,
+        ForeignKey("community_requests.id"),
+        nullable=False
+    )
+
+    response_unit_id = Column(
+        Integer,
+        ForeignKey("response_units.id"),
+        nullable=False
+    )
+
+    assigned_by_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    status = Column(
+        String(40),
+        default="ASSIGNED",
+        nullable=False
+    )
+
+    assigned_at = Column(
+        DateTime,
+        default=lambda: datetime.now(IST)
+    )
+
+    accepted_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    completed_at = Column(
+        DateTime,
+        nullable=True
+    )
+
+    field_remarks = Column(
+        Text,
+        nullable=True
+    )
+
+    people_assisted = Column(
+        Integer,
+        default=0
+    )
+
+    people_rescued = Column(
+        Integer,
+        default=0
+    )
+
+    shelter_destination = Column(
+        String(150),
+        nullable=True
+    )
+
+    response_unit = relationship(
+        "ResponseUnit",
+        back_populates="assignments"
+    )
+
+    request = relationship(
+        "CommunityRequest"
+    )
+
+    assigned_by = relationship(
+        "User",
+        foreign_keys=[assigned_by_id]
+    )
 class DisasterEvent(Base):
     __tablename__ = "disaster_events"
     id = Column(Integer, primary_key=True, index=True)

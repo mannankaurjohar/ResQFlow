@@ -42,7 +42,7 @@ def seed_all_data(db: Session, force_reset: bool = False):
     # 2. Users (7 Personas)
     hashed_pwd = get_password_hash("password123")
     users = [
-        User(username="authority_admin", email="authority@resqflow.org", hashed_password=hashed_pwd, full_name="Command Officer Rajesh Varma", role=UserRole.AUTHORITY, organization_id=org_auth.id, phone="+91 98801 11222"),
+        User(username="emergency_coordinator", email="coordinator@resqflow.org", hashed_password=hashed_pwd, full_name="Emergency Coordinator Rajesh Varma", role=UserRole.EMERGENCY_COORDINATOR, organization_id=org_auth.id, phone="+91 98801 11222"),
         User(username="volunteer_lead", email="volunteer@resqflow.org", hashed_password=hashed_pwd, full_name="Aarav Sen (Field Lead)", role=UserRole.VOLUNTEER, organization_id=org_ngo1.id, phone="+91 98802 22333"),
         User(username="ngo_coordinator", email="ngo@resqflow.org", hashed_password=hashed_pwd, full_name="Farah Khan (Director)", role=UserRole.NGO_MANAGER, organization_id=org_ngo1.id, phone="+91 98803 33444"),
         User(username="warehouse_manager", email="warehouse@resqflow.org", hashed_password=hashed_pwd, full_name="Vikram Seth (Depot Master)", role=UserRole.WAREHOUSE_MANAGER, organization_id=org_wh_a.id, phone="+91 98804 44555"),
@@ -338,9 +338,9 @@ def seed_all_data(db: Session, force_reset: bool = False):
     prev_hash = "0" * 64
     audit_events = [
         ("System Initialization", "SYSTEM", "GENESIS", "SYSTEM", "0", None, "INITIAL_STATE", "Genesis disaster coordination block created"),
-        ("Command Officer Rajesh Varma", "AUTHORITY", "ESCALATE_DISASTER", "DISASTER_EVENT", "FLOOD-2026", "NORMAL", "HIGH_ALERT", "Monsoon surge exceeded warning threshold"),
+        ("Emergency Coordinator Rajesh Varma", "EMERGENCY_COORDINATOR", "ESCALATE_DISASTER", "DISASTER_EVENT", "FLOOD-2026", "NORMAL", "HIGH_ALERT", "Monsoon surge exceeded warning threshold"),
         ("Anita & Vikram Sharma", "DONOR", "PLEDGE_DONATION", "DONATION", "D-10284", None, "500 Water Bottles", "Donation registered with relief tracking ID RELIEF-2026-00482"),
-        ("Command Officer Rajesh Varma", "AUTHORITY", "APPROVE_ALLOCATION", "ALLOCATION", "RELIEF-2026-00482", "RECOMMENDED", "APPROVED", "Approved 500 bottles from Warehouse A"),
+        ("Emergency Coordinator Rajesh Varma", "EMERGENCY_COORDINATOR", "APPROVE_ALLOCATION", "ALLOCATION", "RELIEF-2026-00482", "RECOMMENDED", "APPROVED", "Approved 500 bottles from Warehouse A"),
         ("Logistics Dispatcher", "LOGISTICS", "DISPATCH_DELIVERY", "DELIVERY", "RELIEF-2026-00482", "ALLOCATED", "IN_TRANSIT", "Dispatched on Heavy 4x4 Truck RESQ-V01"),
         ("Field Officer Aarav Sen", "VOLUNTEER", "CONFIRM_DELIVERY", "DELIVERY", "RELIEF-2026-00482", "IN_TRANSIT", "DELIVERED", "Handover completed to Village A council with digital verification")
     ]

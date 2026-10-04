@@ -26,7 +26,7 @@ from app.schemas import (
     CitizenSyncResponse,
     CitizenSyncResponseItem,
 )
-from app.auth import get_current_user, log_audit_event
+from app.auth import get_current_user, get_optional_current_user, log_audit_event
 from app.ai.nlp_parser import parse_natural_language_request
 from app.ai.priority_engine import (
     calculate_priority_score,
@@ -111,7 +111,7 @@ def list_requests(
 def create_request(
     request_in: CommunityRequestCreate,
     db: Session = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_optional_current_user)
 ):
 
     # --------------------------------------------------------
@@ -404,7 +404,26 @@ def create_request(
 # ============================================================
 # GET REQUEST
 # ============================================================
+@router.get(
+    "/my-requests",
+    response_model=List[CommunityRequestResponse]
+)
+def get_my_requests(
+    phone: str,
+    db: Session = Depends(get_db)
+):
+    requests = (
+        db.query(CommunityRequest)
+        .filter(
+            CommunityRequest.reporter_phone == phone
+        )
+        .order_by(
+            CommunityRequest.id.desc()
+        )
+        .all()
+    )
 
+    return requests
 @router.get(
     "/{id}",
     response_model=CommunityRequestResponse
@@ -744,8 +763,8 @@ def _process_citizen_request(
         tracking_code=tracking_code,
         idempotency_key=idempotency_key or tracking_code,
         zone_id=zone.id if zone else None,
-        reporter_name="Citizen Mobile User",
-        reporter_phone=None,
+        reporter_name=request_in.reporter_name or "Citizen Mobile User",
+        reporter_phone=request_in.reporter_phone,
         reporter_role="Citizen",
         location_name=loc_name.strip(),
         latitude=request_in.latitude,
@@ -1011,3 +1030,4 @@ def receive_inbound_sms(
         communication_status="RECEIVED"
     )
     return _process_citizen_request(citizen_in, db)
+

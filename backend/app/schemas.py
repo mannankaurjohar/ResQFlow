@@ -4,9 +4,12 @@ from pydantic import BaseModel, EmailStr, Field
 from app.models import UserRole, SeverityLevel, RequestStatus, ReliefStatus
 
 # Auth Schemas
+
 class UserLogin(BaseModel):
     username: str
     password: str
+    role: UserRole
+
 
 class UserResponse(BaseModel):
     id: int
@@ -18,18 +21,71 @@ class UserResponse(BaseModel):
     phone: Optional[str] = None
     is_active: bool
 
+    # Used by the Admin Users page to determine
+    # whether the worker is currently online.
+    last_seen_at: Optional[datetime.datetime] = None
+
+    # Warehouse Managers are assigned to one warehouse.
+    assigned_warehouse_id: Optional[int] = None
+
     class Config:
         from_attributes = True
+
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserResponse
+    password_reset_required: bool = False
+
 
 class TokenData(BaseModel):
     username: Optional[str] = None
     role: Optional[str] = None
 
+
+# -------------------------------------------------
+# Worker / Admin Schemas
+# -------------------------------------------------
+
+class WorkerCreate(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=100)
+    phone: Optional[str] = Field(default=None, max_length=50)
+    role: UserRole
+    email: Optional[EmailStr] = None
+    organization_id: Optional[int] = None
+    assigned_warehouse_id: Optional[int] = None
+
+
+class WorkerCreateResponse(BaseModel):
+    user: UserResponse
+    login_id: str
+    temporary_password: str
+
+
+class WorkerResetPasswordResponse(BaseModel):
+    user: UserResponse
+    login_id: str
+    temporary_password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class HeartbeatResponse(BaseModel):
+    status: str
+    last_seen_at: datetime.datetime
+
+
+class LogoutResponse(BaseModel):
+    status: str
+
+
+class WorkerAccessResponse(BaseModel):
+    status: str
+    user: UserResponse
 # NLP AI Extraction Schemas
 class ExtractedItem(BaseModel):
     category: str
@@ -178,6 +234,8 @@ class CitizenItemPayload(BaseModel):
 class CitizenEmergencyRequestCreate(BaseModel):
     idempotency_key: Optional[str] = None
     tracking_code: Optional[str] = None
+    reporter_name: Optional[str] = None
+    reporter_phone: Optional[str] = None
     request_type: str = "EVACUATION" # EVACUATION, SUPPLIES
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -504,3 +562,68 @@ class AuditIntegrityCheckResponse(BaseModel):
     is_chain_valid: bool
     broken_block_id: Optional[int] = None
     message: str
+# ============================================================
+# RESPONSE UNIT / FIELD RESPONSE SCHEMAS
+# ============================================================
+
+
+from datetime import datetime
+
+
+class ResponseUnitCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    unit_type: str = Field(..., min_length=1, max_length=80)
+    location: Optional[str] = Field(default=None, max_length=150)
+    members: int = Field(default=1, ge=1)
+    operator_id: int
+
+
+class ResponseUnitResponse(BaseModel):
+    id: int
+    name: str
+    unit_type: str
+    location: Optional[str] = None
+    members: int
+    operator_id: int
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ResponseAssignmentCreate(BaseModel):
+    request_id: int
+    response_unit_id: int
+
+
+class ResponseAssignmentResponse(BaseModel):
+    id: int
+    request_id: int
+    response_unit_id: int
+    assigned_by_id: int
+    status: str
+    assigned_at: datetime
+    accepted_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    field_remarks: Optional[str] = None
+    people_assisted: int = 0
+    people_rescued: int = 0
+    shelter_destination: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ResponseAssignmentStatusUpdate(BaseModel):
+    status: str
+
+
+class ResponseAssignmentComplete(BaseModel):
+    people_assisted: int = Field(default=0, ge=0)
+    people_rescued: int = Field(default=0, ge=0)
+    shelter_destination: Optional[str] = Field(
+        default=None,
+        max_length=150
+    )
+    field_remarks: Optional[str] = None

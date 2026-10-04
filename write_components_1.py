@@ -205,7 +205,7 @@ export const Navbar: React.FC = () => {
 
   const roles: { role: UserRole; title: string; desc: string }[] = [
     { role: 'AUTHORITY', title: 'Authority Command', desc: 'Disaster coordination & approvals' },
-    { role: 'COMMUNITY', title: 'Affected Community', desc: 'Report needs & view relief' },
+    { role: 'COMMUNITY', title: 'Affected Community', desc: 'Request Supplies & view relief' },
     { role: 'VOLUNTEER', title: 'Field Volunteer', desc: 'Verify requests & triage' },
     { role: 'NGO_MANAGER', title: 'NGO Coordinator', desc: 'Manage supplies & missions' },
     { role: 'WAREHOUSE_MANAGER', title: 'Warehouse Master', desc: 'Inventory batches & manifests' },
@@ -256,7 +256,7 @@ export const Navbar: React.FC = () => {
               onClick={() => setActiveTab('report')}
               className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${activeTab === 'report' ? 'bg-navy-800 text-ivory font-semibold' : 'text-slate-light hover:text-ivory hover:bg-navy-800/60'}`}
             >
-              Report Need
+              Request Supplies
             </button>
             <button
               onClick={() => setActiveTab('trace')}

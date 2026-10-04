@@ -9,30 +9,36 @@ export const AuditTrailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [verifying, setVerifying] = useState(false);
 
-  const loadLogs = () => {
-    setLoading(true);
-    api.getAuditLogs().then(data => {
-      setLogs(data);
-    }).catch(err => console.error(err))
-      .finally(() => setLoading(false));
-  };
+ const loadLogs = () => {
+  setVerification(null);
+  setLoading(true);
+
+  api.getAuditLogs().then(data => {
+    setLogs(data);
+  }).catch(err => console.error(err))
+    .finally(() => setLoading(false));
+};
 
   useEffect(() => {
     loadLogs();
   }, []);
 
-  const handleVerifyChain = async () => {
-    setVerifying(true);
-    try {
-      const res = await api.verifyAuditIntegrity();
-      setVerification(res);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setVerifying(false);
-    }
-  };
+ const handleVerifyChain = async () => {
+  setVerifying(true);
 
+  try {
+    const res = await api.verifyAuditIntegrity();
+
+    setVerification(res);
+  } catch (err) {
+    console.error(
+      'Audit integrity verification failed:',
+      err
+    );
+  } finally {
+    setVerifying(false);
+  }
+};
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-8">
       

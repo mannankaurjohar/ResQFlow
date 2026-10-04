@@ -13,6 +13,51 @@ import {
 export const API_BASE =
   import.meta.env.VITE_API_URL ||
   'http://127.0.0.1:8000/api';
+const getAuthToken = (): string | null => {
+  return localStorage.getItem('resqflow_token');
+};
+
+const publicFetch = async (
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const headers = new Headers(options.headers);
+  headers.set('Content-Type', 'application/json');
+
+  return fetch(url, {
+    ...options,
+    headers
+  });
+};
+const authenticatedFetch = async (
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> => {
+  const token = getAuthToken();
+
+  const headers = new Headers(options.headers);
+
+  headers.set('Content-Type', 'application/json');
+
+  if (token) {
+    headers.set(
+      'Authorization',
+      `Bearer ${token}`
+    );
+  }
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+
+  if (response.status === 401) {
+    localStorage.removeItem('resqflow_token');
+    localStorage.removeItem('resqflow_user');
+  }
+
+  return response;
+};
 export interface MatchedFacility {
   osm_id: number;
   osm_type: string;
@@ -189,16 +234,173 @@ async getOfficialWarehouses(
 
   return data.warehouses || [];
 },
-  // ============================================================
-  // Demo users & auth
+    // ============================================================
+  // Authentication
   // ============================================================
 
-  async getDemoUsers(): Promise<User[]> {
+  async login(
+    username: string,
+    password: string,
+    role: string
+  ) {
     const res = await fetch(
-      API_BASE + '/auth/demo-users'
+      API_BASE + '/auth/login',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          role
+        })
+      }
     );
 
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail || 'Login failed'
+      );
+    }
+
+    localStorage.setItem(
+      'resqflow_token',
+      data.access_token
+    );
+
+    localStorage.setItem(
+  'resqflow_user',
+  JSON.stringify(data.user)
+);
+
+localStorage.setItem(
+  'resqflow_password_reset_required',
+  String(data.password_reset_required ?? false)
+);
+
+return data;
+  },
+
+  async getCurrentUser(): Promise<User> {
+    const res = await authenticatedFetch(
+      API_BASE + '/auth/me'
+    );
+
+    if (!res.ok) {
+      throw new Error('Not authenticated');
+    }
+
     return res.json();
+  },
+    async createWorker(data: {
+    full_name: string;
+    phone?: string;
+    role: string;
+    email?: string;
+    organization_id?: number;
+    assigned_warehouse_id?: number;
+  }) {
+    const res = await authenticatedFetch(
+      API_BASE + '/auth/workers',
+      {
+        method: 'POST',
+        body: JSON.stringify(data)
+      }
+    );
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        result?.detail ||
+        'Failed to create user account'
+      );
+    }
+
+    return result;
+  },
+
+  async getWorkers(): Promise<User[]> {
+    const res = await authenticatedFetch(
+      API_BASE + '/auth/workers'
+    );
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        result?.detail ||
+        'Failed to load users'
+      );
+    }
+
+    return result;
+  },
+
+  async resetWorkerPassword(
+    userId: number
+  ) {
+    const res = await authenticatedFetch(
+      API_BASE +
+        `/auth/workers/${userId}/reset-password`,
+      {
+        method: 'POST'
+      }
+    );
+
+    const result = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        result?.detail ||
+        'Failed to reset password'
+      );
+    }
+
+    return result;
+  },
+  async changePassword(
+    currentPassword: string,
+    newPassword: string
+  ): Promise<User> {
+    const res = await authenticatedFetch(
+      API_BASE + '/auth/change-password',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(
+        data?.detail ||
+        'Failed to change password'
+      );
+    }
+
+    localStorage.setItem(
+      'resqflow_password_reset_required',
+      'false'
+    );
+
+    localStorage.setItem(
+      'resqflow_user',
+      JSON.stringify(data)
+    );
+
+    return data;
+  },
+  logout() {
+    localStorage.removeItem('resqflow_token');
+    localStorage.removeItem('resqflow_user');
   },
 
   // ============================================================
@@ -267,7 +469,36 @@ async getOfficialWarehouses(
 
     return res.json();
   },
+  async getMyRequests(
+  phone: string
+): Promise<CommunityRequest[]> {
+  const res = await fetch(
+    API_BASE +
+      '/requests/my-requests?phone=' +
+      encodeURIComponent(phone)
+  );
 
+  if (!res.ok) {
+    let message = 'Failed to load your requests';
+
+    try {
+      const data = await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+},
   async getRequestById(
     id: number
   ): Promise<CommunityRequest> {
@@ -295,17 +526,13 @@ async getOfficialWarehouses(
   async createRequest(
     data: any
   ): Promise<CommunityRequest> {
-    const res = await fetch(
-      API_BASE + '/requests',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
-        body: JSON.stringify(data)
-      }
-    );
+    const res = await publicFetch(
+  API_BASE + '/requests',
+  {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }
+);
 
     if (!res.ok) {
       let message =
@@ -468,20 +695,14 @@ async getOfficialWarehouses(
     override_notes?: string;
   }
 ): Promise<any[]> {
-    const res = await fetch(
-      API_BASE +
-        '/allocations/approve',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
-        body: JSON.stringify(
-          payload
-        )
-      }
-    );
+  const token = localStorage.getItem('token');
+    const res = await authenticatedFetch(
+  API_BASE + '/allocations/approve',
+  {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }
+);
 
     if (!res.ok) {
       let message =
@@ -651,7 +872,16 @@ async getOfficialWarehouses(
 
     return res.json();
   },
+async getFloodAlerts(): Promise<any[]> {
+  const response = await fetch(`${API_BASE}/flood-alerts`);
 
+  if (!response.ok) {
+    throw new Error("Failed to fetch live flood alerts");
+  }
+
+  const data = await response.json();
+  return data.alerts ?? [];
+},
   // ============================================================
   // Donations & Trace
   // ============================================================
@@ -696,24 +926,38 @@ async getOfficialWarehouses(
     return res.json();
   },
 
-  async createDonation(
-    data: any
-  ): Promise<any> {
-    const res = await fetch(
-      API_BASE + '/donations',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
-        body: JSON.stringify(data)
+async createDonation(
+  data: any
+): Promise<any> {
+  const res = await publicFetch(
+    API_BASE + '/donations',
+    {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }
+  );
+
+  if (!res.ok) {
+    let message = 'Failed to register donation';
+
+    try {
+      const responseData = await res.json();
+
+      if (responseData?.detail) {
+        message =
+          typeof responseData.detail === 'string'
+            ? responseData.detail
+            : JSON.stringify(responseData.detail);
       }
-    );
+    } catch {
+      // Keep default message
+    }
 
-    return res.json();
-  },
+    throw new Error(message);
+  }
 
+  return res.json();
+},
   // ============================================================
   // GIS
   // ============================================================
@@ -804,31 +1048,167 @@ async getOfficialWarehouses(
 
     return res.json();
   },
+async getAdminDashboard(): Promise<{
+  total_users: number;
+  active_users: number;
+  total_roles: number;
+  total_organizations: number;
+  role_distribution: Record<string, number>;
+}> {
+  const res = await authenticatedFetch(
+    API_BASE + '/admin/dashboard'
+  );
 
+  if (!res.ok) {
+    let message = 'Failed to load admin dashboard';
+
+    try {
+      const data = await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+},
+// ============================================================
+// RESPONSE UNITS
+// ============================================================
+
+getResponseUnits: async (): Promise<any[]> => {
+  const response = await authenticatedFetch(
+    `${API_BASE}/response-units`
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+
+    throw new Error(
+      error.detail || 'Failed to load response units'
+    );
+  }
+
+  return response.json();
+},
+
+createResponseUnit: async (data: {
+  name: string;
+  unit_type: string;
+  location: string;
+  members: number;
+  operator_id: number;
+}): Promise<any> => {
+  const response = await authenticatedFetch(
+    `${API_BASE}/response-units`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+
+    throw new Error(
+      error.detail || 'Failed to create response unit'
+    );
+  }
+
+  return response.json();
+},
+
+getAvailableResponseUnits: async (): Promise<any[]> => {
+  const response = await authenticatedFetch(
+    `${API_BASE}/response-units/available`
+  );
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+
+    throw new Error(
+      error.detail || 'Failed to load available response units'
+    );
+  }
+
+  return response.json();
+},
   // ============================================================
   // Audit
   // ============================================================
 
   async getAuditLogs(): Promise<AuditLog[]> {
-    const res = await fetch(
-      API_BASE + '/audit'
-    );
+  const res = await authenticatedFetch(
+    API_BASE + '/audit'
+  );
 
-    return res.json();
-  },
+  if (!res.ok) {
+    let message = 'Failed to load audit logs';
+
+    try {
+      const data = await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
+  }
+
+  return res.json();
+},
 
   async verifyAuditIntegrity(): Promise<{
-    total_records: number;
-    is_chain_valid: boolean;
-    message: string;
-  }> {
-    const res = await fetch(
-      API_BASE +
-        '/audit/verify-integrity'
-    );
+  total_records: number;
+  is_chain_valid: boolean;
+  broken_block_id: number | null;
+  message: string;
+}> {
+  const res = await authenticatedFetch(
+    API_BASE + '/audit/verify-integrity'
+  );
 
-    return res.json();
+  if (!res.ok) {
+    let message = 'Failed to verify audit integrity';
+
+    try {
+      const data = await res.json();
+
+      if (data?.detail) {
+        message =
+          typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+      }
+    } catch {
+      // Keep default message
+    }
+
+    throw new Error(message);
   }
+
+  return res.json();
+},
 };
 
 export default api;
+ 
+ 
+ 

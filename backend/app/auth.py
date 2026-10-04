@@ -13,8 +13,24 @@ from app.database import get_db
 from app.models import IST, User, UserRole, AuditLog
 from app.schemas import TokenData
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login", auto_error=False)
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/token",
+    scopes={
+        "ADMIN": "Administrator access",
+        "EMERGENCY_COORDINATOR": "Emergency Coordinator access",
+        "COMMUNITY": "Community access",
+        "VOLUNTEER": "Volunteer access",
+        "NGO_MANAGER": "NGO Manager access",
+        "WAREHOUSE_MANAGER": "Warehouse Manager access",
+        "DONOR": "Donor access",
+    },
+    auto_error=True
+)
 
+optional_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/token",
+    auto_error=False
+)
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
         return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
@@ -35,24 +51,82 @@ def create_access_token(data: dict, expires_delta: Optional[datetime.timedelta] 
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
-def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> Optional[User]:
-    if not token:
-        # Fallback default authority demo user if unauthenticated for smooth hackathon demo testing
-        return db.query(User).filter(User.username == "authority_admin").first()
-    
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User:
+
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise HTTPException(status_code=401, detail="Invalid credentials token")
-        token_data = TokenData(username=username, role=payload.get("role"))
-    except Exception:
-        raise HTTPException(status_code=401, detail="Could not validate credentials")
-    
-    user = db.query(User).filter(User.username == token_data.username).first()
-    if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
-    return user
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM]
+        )
+
+        username = payload.get("sub")
+        token_role = payload.get("role")
+
+        if not username or not token_role:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user = db.query(User).filter(
+            User.username == username
+        ).first()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive"
+            )
+
+        # Token role must match the actual database role
+        actual_role = (
+            user.role.value
+            if hasattr(user.role, "value")
+            else str(user.role)
+        )
+
+        if token_role != actual_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Authentication role mismatch"
+            )
+
+        return user
+
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+def get_optional_current_user(
+    token: Optional[str] = Depends(optional_oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> Optional[User]:
+
+    if not token:
+        return None
+
+    return get_current_user(token=token, db=db)
 
 def require_role(roles: List[UserRole]):
     def role_checker(current_user: User = Depends(get_current_user)):
@@ -80,10 +154,24 @@ def log_audit_event(
     last_log = db.query(AuditLog).order_by(AuditLog.id.desc()).first()
     prev_hash = last_log.curr_hash if last_log else "0" * 64
     
-    now = datetime.datetime.utcnow()
-    # 2. Compute SHA-256 block hash
-    hash_payload = f"{prev_hash}|{now.isoformat()}|{actor_name}|{actor_role}|{action}|{entity_type}|{entity_id}|{previous_state or ''}|{new_state or ''}|{reason or ''}"
-    curr_hash = hashlib.sha256(hash_payload.encode("utf-8")).hexdigest()
+    now = datetime.datetime.now(IST)
+
+    hash_payload = (
+        f"{prev_hash}|"
+        f"{now.isoformat()}|"
+        f"{actor_name}|"
+        f"{actor_role}|"
+        f"{action}|"
+        f"{entity_type}|"
+        f"{entity_id}|"
+        f"{previous_state or ''}|"
+        f"{new_state or ''}|"
+        f"{reason or ''}"
+    )
+
+    curr_hash = hashlib.sha256(
+        hash_payload.encode("utf-8")
+    ).hexdigest()
     
     audit_entry = AuditLog(
         actor_id=actor_id,
@@ -103,3 +191,7 @@ def log_audit_event(
     db.commit()
     db.refresh(audit_entry)
     return audit_entry
+
+
+
+

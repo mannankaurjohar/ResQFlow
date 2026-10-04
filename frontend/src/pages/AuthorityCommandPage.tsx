@@ -55,14 +55,15 @@ const getFacilityRole = (type: string) => {
 
 export const AuthorityCommandPage: React.FC = () => {
   const {
-    isEmergencyMode,
-    isEscalated,
-    triggerEscalation,
-    triggerReset,
-    setActivePriorityModalRequest,
-    setActiveMatchModalRequest,
-    showNotification
-  } = useApp();
+  isEmergencyMode,
+  isEscalated,
+  triggerEscalation,
+  triggerReset,
+  setActivePriorityModalRequest,
+  setActiveMatchModalRequest,
+  setActiveTab,
+  showNotification
+} = useApp();
 
   const [requests, setRequests] = useState<CommunityRequest[]>([]);
   const [shortages, setShortages] = useState<any[]>([]);
@@ -116,14 +117,21 @@ const loadAll = async () => {
   }
 
   // Shortages
-  if (coreResults[1].status === 'fulfilled') {
-    setShortages(coreResults[1].value);
-  } else {
-    console.error(
-      'Failed to load shortages:',
-      coreResults[1].reason
-    );
-  }
+if (coreResults[1].status === 'fulfilled') {
+  setShortages(
+    Array.isArray(coreResults[1].value)
+      ? coreResults[1].value
+      : []
+  );
+} else {
+  console.error(
+    'Failed to load shortages:',
+    coreResults[1].reason
+  );
+
+  // Keep Command Center usable even if shortage API fails
+  setShortages([]);
+}
 
   // Analytics
   if (coreResults[2].status === 'fulfilled') {
@@ -1066,7 +1074,7 @@ const handleCompleteDelivery = async () => {
 
 </div>   
 {/* ============================================================
-    DELIVERY OPERATIONS
+    RESPONSE OPERATIONS
 ============================================================ */}
 
 <div className="bg-ivory border border-slate/20 rounded-xl p-5 shadow-soft">
@@ -1075,25 +1083,25 @@ const handleCompleteDelivery = async () => {
 
     <div>
       <h3 className="font-bold text-base text-navy">
-        Delivery Operations
+        Response Operations
       </h3>
 
       <p className="text-xs text-slate mt-0.5">
-        Operational control for approved relief allocations
+        Manage approved allocations and field response operations
       </p>
     </div>
 
     <div className="flex items-center gap-2">
 
       <span className="text-xs font-semibold text-navy bg-navy/5 px-2.5 py-1 rounded">
-        {deliveries.length} deliveries
+        {deliveries.length} active responses
       </span>
 
       <button
         type="button"
         onClick={refreshDeliveries}
         className="p-1.5 text-slate hover:text-navy border border-slate/20 rounded-md bg-white"
-        title="Refresh deliveries"
+        title="Refresh responses"
       >
         <RefreshCw className="w-4 h-4" />
       </button>
@@ -1102,17 +1110,17 @@ const handleCompleteDelivery = async () => {
 
   </div>
 
+
   {deliveryLoading && deliveries.length === 0 ? (
 
     <div className="text-sm text-slate py-5">
-      Loading delivery operations...
+      Loading response operations...
     </div>
 
   ) : deliveries.length === 0 ? (
 
     <div className="text-sm text-slate py-5">
-      No delivery has been created yet. Approve a verified allocation
-      to create the delivery record.
+      No approved allocations are awaiting response-team action.
     </div>
 
   ) : (
@@ -1125,8 +1133,32 @@ const handleCompleteDelivery = async () => {
           delivery.status || ''
         ).toUpperCase();
 
+        /*
+         * Response lifecycle:
+         *
+         * ALLOCATED
+         *      ↓
+         * TEAM_CREATED
+         *      ↓
+         * ASSIGNED
+         *      ↓
+         * DISPATCHED
+         *      ↓
+         * IN_TRANSIT
+         *      ↓
+         * ON_SCENE
+         *      ↓
+         * COMPLETED
+         */
+
         const isAllocated =
           status === 'ALLOCATED';
+
+        const isTeamCreated =
+          status === 'TEAM_CREATED';
+
+        const isAssigned =
+          status === 'ASSIGNED';
 
         const isDispatched =
           status === 'DISPATCHED';
@@ -1134,11 +1166,15 @@ const handleCompleteDelivery = async () => {
         const isInTransit =
           status === 'IN_TRANSIT';
 
-        const isDelivered =
-          status === 'DELIVERED';
+        const isOnScene =
+          status === 'ON_SCENE';
+
+        const isCompleted =
+          status === 'COMPLETED';
 
         const isWorking =
           deliveryActionId === delivery.id;
+
 
         return (
 
@@ -1147,7 +1183,9 @@ const handleCompleteDelivery = async () => {
             className="bg-white border border-slate/20 rounded-xl p-4"
           >
 
-            {/* Delivery Header */}
+            {/* ==================================================
+                RESPONSE HEADER
+            ================================================== */}
 
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
 
@@ -1167,12 +1205,17 @@ const handleCompleteDelivery = async () => {
                 </div>
 
                 <div className="text-[11px] text-slate mt-1">
-                  Delivery ID: #{delivery.id}
-                  {' • '}
+
                   Allocation ID: #{delivery.allocation_id}
+
+                  {' • '}
+
+                  Response ID: #{delivery.id}
+
                 </div>
 
               </div>
+
 
               <div className="text-right">
 
@@ -1189,21 +1232,37 @@ const handleCompleteDelivery = async () => {
             </div>
 
 
-            {/* Delivery Details */}
+            {/* ==================================================
+                RESPONSE DETAILS
+            ================================================== */}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
 
               <div className="bg-ivory border border-slate/15 rounded-lg p-3">
 
                 <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
-                  Origin
+                  Allocation
                 </div>
 
                 <div className="text-xs font-semibold text-navy mt-1">
-                  Warehouse #{delivery.origin_warehouse_id}
+                  AI Allocation Approved
                 </div>
 
               </div>
+
+
+              <div className="bg-ivory border border-slate/15 rounded-lg p-3">
+
+                <div className="text-[10px] uppercase tracking-wider text-slate font-semibold">
+                  Response Team
+                </div>
+
+                <div className="text-xs font-semibold text-navy mt-1">
+                  {delivery.response_team_name || 'Not created'}
+                </div>
+
+              </div>
+
 
               <div className="bg-ivory border border-slate/15 rounded-lg p-3">
 
@@ -1219,136 +1278,275 @@ const handleCompleteDelivery = async () => {
 
               </div>
 
-              
-
             </div>
 
 
-            {/* Operational Timeline */}
+            {/* ==================================================
+                RESPONSE TIMELINE
+            ================================================== */}
 
             <div className="flex flex-wrap items-center gap-2 mt-4 text-[10px] font-semibold">
 
+              {/* 1. Allocation Approved */}
+
               <span
                 className={
-                  status === 'ALLOCATED' ||
-                  status === 'DISPATCHED' ||
-                  status === 'IN_TRANSIT' ||
-                  status === 'DELIVERED'
+                  [
+                    'ALLOCATED',
+                    'TEAM_CREATED',
+                    'ASSIGNED',
+                    'DISPATCHED',
+                    'IN_TRANSIT',
+                    'ON_SCENE',
+                    'COMPLETED'
+                  ].includes(status)
                     ? 'text-status-fulfilled'
                     : 'text-slate'
                 }
               >
-                1. Allocated
+                1. Allocation Approved
               </span>
+
 
               <ArrowRight className="w-3 h-3 text-slate" />
 
+
+              {/* 2. Team Created */}
+
               <span
                 className={
-                  status === 'DISPATCHED' ||
-                  status === 'IN_TRANSIT' ||
-                  status === 'DELIVERED'
+                  [
+                    'TEAM_CREATED',
+                    'ASSIGNED',
+                    'DISPATCHED',
+                    'IN_TRANSIT',
+                    'ON_SCENE',
+                    'COMPLETED'
+                  ].includes(status)
                     ? 'text-status-fulfilled'
                     : 'text-slate'
                 }
               >
-                2. Dispatched
+                2. Team Created
               </span>
+
 
               <ArrowRight className="w-3 h-3 text-slate" />
 
+
+              {/* 3. Task Assigned */}
+
               <span
                 className={
-                  status === 'IN_TRANSIT' ||
-                  status === 'DELIVERED'
+                  [
+                    'ASSIGNED',
+                    'DISPATCHED',
+                    'IN_TRANSIT',
+                    'ON_SCENE',
+                    'COMPLETED'
+                  ].includes(status)
                     ? 'text-status-fulfilled'
                     : 'text-slate'
                 }
               >
-                3. In Transit
+                3. Task Assigned
               </span>
+
 
               <ArrowRight className="w-3 h-3 text-slate" />
 
+
+              {/* 4. Dispatched */}
+
               <span
                 className={
-                  status === 'DELIVERED'
+                  [
+                    'DISPATCHED',
+                    'IN_TRANSIT',
+                    'ON_SCENE',
+                    'COMPLETED'
+                  ].includes(status)
                     ? 'text-status-fulfilled'
                     : 'text-slate'
                 }
               >
-                4. Delivered
+                4. Dispatched
+              </span>
+
+
+              <ArrowRight className="w-3 h-3 text-slate" />
+
+
+              {/* 5. In Transit */}
+
+              <span
+                className={
+                  [
+                    'IN_TRANSIT',
+                    'ON_SCENE',
+                    'COMPLETED'
+                  ].includes(status)
+                    ? 'text-status-fulfilled'
+                    : 'text-slate'
+                }
+              >
+                5. In Transit
+              </span>
+
+
+              <ArrowRight className="w-3 h-3 text-slate" />
+
+
+              {/* 6. On Scene */}
+
+              <span
+                className={
+                  [
+                    'ON_SCENE',
+                    'COMPLETED'
+                  ].includes(status)
+                    ? 'text-status-fulfilled'
+                    : 'text-slate'
+                }
+              >
+                6. On Scene
+              </span>
+
+
+              <ArrowRight className="w-3 h-3 text-slate" />
+
+
+              {/* 7. Complete */}
+
+              <span
+                className={
+                  status === 'COMPLETED'
+                    ? 'text-status-fulfilled'
+                    : 'text-slate'
+                }
+              >
+                7. Complete
               </span>
 
             </div>
 
 
-            {/* Actions */}
+            {/* ==================================================
+                ACTIONS
+            ================================================== */}
 
             <div className="mt-4 pt-3 border-t border-slate/15 flex flex-wrap gap-2">
 
+
+              {/* ================================================
+                  CREATE RESPONSE TEAM
+              ================================================= */}
+
               {isAllocated && (
-
-                <button
-                  type="button"
-                  disabled={isWorking}
-                  onClick={() =>
-                    handleDispatch(delivery)
-                  }
-                  className="bg-terracotta hover:bg-terracotta-hover disabled:opacity-50 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-                >
-                  {isWorking
-                    ? 'Dispatching...'
-                    : 'Dispatch Delivery'}
-                </button>
-
-              )}
-
-
-              {isDispatched && (
-
-                <button
-                  type="button"
-                  disabled={isWorking}
-                  onClick={() =>
-                    handleInTransit(delivery)
-                  }
-                  className="bg-navy hover:opacity-90 disabled:opacity-50 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
-                >
-                  {isWorking
-                    ? 'Updating...'
-                    : 'Mark In Transit'}
-                </button>
-
-              )}
-
-
-              {isInTransit && (
 
   <button
     type="button"
-    disabled={isWorking}
-    onClick={() => {
-      setSelectedDelivery(delivery);
-      setShowCompleteDelivery(true);
-    }}
-    className="bg-terracotta hover:bg-terracotta-hover disabled:opacity-50 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+    onClick={() => setActiveTab('response-units')}
+    className="bg-navy hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
   >
-    {isWorking
-      ? 'Completing...'
-      : 'Complete Delivery'}
+    Create Response Unit
   </button>
 
 )}
 
 
-              {isDelivered && (
+              {/* ================================================
+                  ASSIGN TASK
+              ================================================= */}
+
+              {isTeamCreated && (
+
+                <button
+                  type="button"
+                  className="bg-terracotta hover:bg-terracotta-hover text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                >
+                  Assign Task
+                </button>
+
+              )}
+
+
+              {/* ================================================
+                  DISPATCH
+              ================================================= */}
+
+              {isAssigned && (
+
+                <button
+                  type="button"
+                  className="bg-navy hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                >
+                  Dispatch Team
+                </button>
+
+              )}
+
+
+              {/* ================================================
+                  IN TRANSIT
+              ================================================= */}
+
+              {isDispatched && (
+
+                <button
+                  type="button"
+                  className="bg-navy hover:opacity-90 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                >
+                  Mark In Transit
+                </button>
+
+              )}
+
+
+              {/* ================================================
+                  ON SCENE
+              ================================================= */}
+
+              {isInTransit && (
+
+                <button
+                  type="button"
+                  className="bg-terracotta hover:bg-terracotta-hover text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                >
+                  Mark On Scene
+                </button>
+
+              )}
+
+
+              {/* ================================================
+                  COMPLETE
+              ================================================= */}
+
+              {isOnScene && (
+
+                <button
+                  type="button"
+                  className="bg-terracotta hover:bg-terracotta-hover text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                >
+                  Complete Response
+                </button>
+
+              )}
+
+
+              {/* ================================================
+                  COMPLETED
+              ================================================= */}
+
+              {isCompleted && (
 
                 <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 px-3 py-1.5 rounded-md">
 
                   <CheckCircle className="w-3.5 h-3.5" />
 
-                  Delivery completed and recorded.
+                  Response completed. Team dissolved and operators
+                  returned to the available pool.
 
                 </div>
 
@@ -1359,6 +1557,7 @@ const handleCompleteDelivery = async () => {
           </div>
 
         );
+
       })}
 
     </div>
