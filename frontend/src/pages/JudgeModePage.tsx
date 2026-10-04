@@ -110,9 +110,32 @@ const steps: JudgeStep[] = [
       'Take Action',
     ],
   },
+   {
+    id: 4,
+    title: 'Live Alerts',
+    subtitle: 'Monitor changing disaster conditions',
+    description:
+      'Live Alerts provides responders with immediate visibility into important disaster signals and emerging situations, helping authorities adapt their response as conditions change.',
+    icon: BellRing,
+    tab: 'flood-alerts',
+    accent: 'red',
+    points: [
+      'Real-time disaster awareness',
+      'High-priority alert visibility',
+      'Rapid operational notification',
+      'Supports proactive decisions',
+    ],
+    flow: [
+      'Live Signal',
+      'Alert Generated',
+      'Authority Notified',
+      'Response Adjusted',
+    ],
+  },
+
 
   {
-    id: 4,
+    id: 5,
     title: 'AI Resource Matching',
     subtitle: 'Match verified needs with available resources',
     description:
@@ -135,7 +158,7 @@ const steps: JudgeStep[] = [
   },
 
   {
-    id: 5,
+    id: 6,
     title: 'Response Unit Creation & Management',
     subtitle: 'Build authorized emergency response teams',
     description:
@@ -158,7 +181,7 @@ const steps: JudgeStep[] = [
   },
 
   {
-    id: 6,
+    id: 7,
     title: 'Response Operator Tasks',
     subtitle: 'Turn assignments into field action',
     description:
@@ -180,29 +203,7 @@ const steps: JudgeStep[] = [
     ],
   },
 
-  {
-    id: 7,
-    title: 'Live Alerts',
-    subtitle: 'Monitor changing disaster conditions',
-    description:
-      'Live Alerts provides responders with immediate visibility into important disaster signals and emerging situations, helping authorities adapt their response as conditions change.',
-    icon: BellRing,
-    tab: 'flood-alerts',
-    accent: 'red',
-    points: [
-      'Real-time disaster awareness',
-      'High-priority alert visibility',
-      'Rapid operational notification',
-      'Supports proactive decisions',
-    ],
-    flow: [
-      'Live Signal',
-      'Alert Generated',
-      'Authority Notified',
-      'Response Adjusted',
-    ],
-  },
-
+ 
   {
     id: 8,
     title: 'Evacuation & Emergency Response',
