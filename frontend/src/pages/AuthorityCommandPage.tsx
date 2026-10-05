@@ -90,6 +90,7 @@ export const AuthorityCommandPage: React.FC = () => {
   const [recipientSignature, setRecipientSignature] = useState('');
   const [handoverNotes, setHandoverNotes] = useState('');
   const signatureRef = useRef<SignatureCanvas | null>(null);
+  const responseOperationsRef = useRef<HTMLDivElement | null>(null);
 
   const loadAll = async () => {
     setLoading(true);
@@ -1580,7 +1581,14 @@ export const AuthorityCommandPage: React.FC = () => {
                               onClick={async () => {
                                 if (req.request_type?.toUpperCase() === 'EVACUATION') {
                                   await api.approveEvacuation(req.id);
-                                  window.location.reload();
+
+const [requestData, deliveryData] = await Promise.all([
+  api.getRequests(),
+  api.getDeliveries()
+]);
+
+setRequests(requestData);
+setDeliveries(deliveryData);
                                 } else {
                                   setActiveMatchModalRequest(req);
                                 }

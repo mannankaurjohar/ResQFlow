@@ -402,7 +402,17 @@ def track_response_request(
         current_rank = assignment_rank[assignment_status]
         current_status = assignment_status
     else:
-        current_rank = request_rank.get(request_status, 0)
+        if (
+            request_status == "DELIVERED"
+            or (
+                assignment is not None
+                and assignment.completed_at is not None
+            )
+        ):
+            current_rank = len(lifecycle)
+        else:
+            current_rank = request_rank.get(request_status, 0)
+
         current_status = request_status or "SUBMITTED"
 
     timestamps = {

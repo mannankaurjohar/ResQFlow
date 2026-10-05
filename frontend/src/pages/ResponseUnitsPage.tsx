@@ -29,7 +29,7 @@ type ResponseUnit = {
   location: string;
   members: number;
   operator: string;
-  
+  operatorId: number;
   status: UnitStatus;
 };
 
@@ -213,29 +213,19 @@ const handleAssignTeam = async () => {
   }
 };
 
-const filteredOperators = type
-  ? operators.filter((user) => {
-      const selectedType = String(type).trim().toUpperCase();
+const filteredOperators = operators.filter((user) => {
+  const matchesType =
+    !type ||
+    user.organization_id === UNIT_TYPE_ORGANIZATION_MAP[type] ||
+    user.unit_type === type;
 
-      const userUnitType = String(
-        user.unit_type || ''
-      ).trim().toUpperCase();
+  const alreadyAssigned = units.some(
+    (unit) => unit.operatorId === user.id
+  );
 
-      // Match unit_type if available
-      if (userUnitType === selectedType) {
-        return true;
-      }
-
-      // Otherwise match organization
-      const organizationId =
-        UNIT_TYPE_ORGANIZATION_MAP[type];
-
-      return (
-        organizationId !== undefined &&
-        Number(user.organization_id) === organizationId
-      );
-    })
-  : [];
+  return matchesType && !alreadyAssigned;
+});
+     
     
    
   const handleCreateUnit = async (e: React.FormEvent) => {
@@ -267,7 +257,8 @@ const filteredOperators = type
         type: createdUnit.unit_type,
         location: createdUnit.location || '',
         members: createdUnit.members,
-        operator: String(createdUnit.operator_id),
+        operator: operator || 'Unknown',
+        operatorId: Number(createdUnit.operator_id),
         status: createdUnit.status,
       };
 

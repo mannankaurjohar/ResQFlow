@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-
+from datetime import datetime
 from app.database import get_db
 from app.models import (
     CommunityRequest,
@@ -13,6 +13,10 @@ from app.models import (
     RequestStatus,
     SeverityLevel,
     ResponseAssignment,
+    Allocation,
+    Delivery,
+    Warehouse,
+    ReliefStatus,
 )
 from app.schemas import (
     CommunityRequestCreate,
@@ -1058,6 +1062,10 @@ def receive_inbound_sms(
     "/{id}/approve-evacuation",
     response_model=CommunityRequestResponse
 )
+@router.post(
+    "/{id}/approve-evacuation",
+    response_model=CommunityRequestResponse
+)
 def approve_evacuation(
     id: int,
     db: Session = Depends(get_db),
@@ -1087,10 +1095,156 @@ def approve_evacuation(
             detail="Rejected request cannot be approved"
         )
 
-    req.status = RequestStatus.VERIFIED
+    # --------------------------------------------------------
+    # PREVENT DUPLICATE EVACUATION RESPONSE
+    # --------------------------------------------------------
+
+    existing_allocation = (
+        db.query(Allocation)
+        .filter(
+            Allocation.request_id == req.id
+        )
+        .first()
+    )
+
+    if existing_allocation:
+        req.status = RequestStatus.ALLOCATED
+        db.commit()
+        db.refresh(req)
+        return req
+
+    # --------------------------------------------------------
+    # EVACUATION REQUEST MUST HAVE A DESTINATION
+    # --------------------------------------------------------
+
+    if req.latitude is None or req.longitude is None:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Evacuation request must have valid "
+                "location coordinates."
+            )
+        )
+
+    # --------------------------------------------------------
+    # SELECT AN ACTIVE WAREHOUSE
+    #
+    # This does NOT allocate or consume inventory.
+    # The warehouse is only used as the origin required
+    # by the existing Delivery model.
+    # --------------------------------------------------------
+
+    warehouses = (
+        db.query(Warehouse)
+        .filter(
+            Warehouse.is_active == True
+        )
+        .all()
+    )
+
+    if not warehouses:
+        raise HTTPException(
+            status_code=409,
+            detail="No active warehouse is available for response operations."
+        )
+
+    warehouse = min(
+        warehouses,
+        key=lambda w: (
+            (w.latitude - req.latitude) ** 2
+            +
+            (w.longitude - req.longitude) ** 2
+        )
+    )
+
+    # --------------------------------------------------------
+    # CREATE RESPONSE ALLOCATION
+    #
+    # No AllocationItems are created because evacuation
+    # does not consume relief inventory.
+    # --------------------------------------------------------
+
+    relief_id = (
+        f"{req.tracking_code}-EVAC"
+    )
+
+    allocation = Allocation(
+        request_id=req.id,
+        warehouse_id=warehouse.id,
+        relief_id=relief_id,
+        status="APPROVED",
+        ai_score=(
+            req.authority_override_score
+            if req.authority_override_score is not None
+            else req.priority_score
+        ),
+        ai_rationale=(
+            "Evacuation response approved by "
+            +
+            (
+                current_user.full_name
+                if current_user
+                else "Command"
+            )
+            +
+            "."
+        ),
+        is_partial=False,
+        approved_by_id=(
+            current_user.id
+            if current_user
+            else None
+        ),
+        approved_at=datetime.utcnow(),
+        override_notes=None
+    )
+
+    db.add(allocation)
+    db.flush()
+
+    # --------------------------------------------------------
+    # CREATE RESPONSE OPERATION
+    # --------------------------------------------------------
+
+    delivery = Delivery(
+        relief_id=relief_id,
+        allocation_id=allocation.id,
+        vehicle_id=None,
+        driver_name=None,
+        driver_phone=None,
+        origin_warehouse_id=warehouse.id,
+        destination_location_name=req.location_name,
+        destination_lat=req.latitude,
+        destination_lon=req.longitude,
+        status=ReliefStatus.ALLOCATED,
+        dispatched_at=None,
+        estimated_delivery_at=None,
+        notes=(
+            "Evacuation response approved. "
+            "Awaiting response-unit assignment and dispatch."
+        )
+    )
+
+    db.add(delivery)
+
+    # --------------------------------------------------------
+    # MOVE REQUEST OUT OF PRIORITY RELIEF REQUESTS
+    # --------------------------------------------------------
+
+    previous_status = (
+        req.status.value
+        if hasattr(req.status, "value")
+        else str(req.status)
+    )
+
+    req.status = RequestStatus.ALLOCATED
 
     db.commit()
     db.refresh(req)
+
+    # --------------------------------------------------------
+    # AUDIT
+    # --------------------------------------------------------
 
     log_audit_event(
         db=db,
@@ -1104,9 +1258,9 @@ def approve_evacuation(
         action="APPROVE_EVACUATION",
         entity_type="COMMUNITY_REQUEST",
         entity_id=req.tracking_code,
-        previous_state="PENDING",
-        new_state="VERIFIED",
-        reason="Evacuation request approved by authority"
+        previous_state=previous_status,
+        new_state="ALLOCATED",
+        reason="Evacuation response approved and created"
     )
 
     return req
