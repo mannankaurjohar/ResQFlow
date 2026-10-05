@@ -12,6 +12,7 @@ from app.database import engine, Base, SessionLocal
 from app.seed_data import seed_all_data
 from app.routers.public_data_router import router as public_data_router
 from fastapi.staticfiles import StaticFiles
+import asyncio
 # Import routers
 from app.routers import (
     auth_router, requests_router, inventory_router, donations_router,
@@ -29,6 +30,9 @@ async def lifespan(app: FastAPI):
     print("ResQFlow AI Backend initializing...")
 
     Base.metadata.create_all(bind=engine)
+    asyncio.create_task(cwc_background_updater())
+    
+
 
     if "sqlite" in settings.DATABASE_URL:
         with engine.begin() as connection:
@@ -109,7 +113,25 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     print("ResQFlow AI Backend stopping.")
+async def cwc_background_updater():
+    from app.database import SessionLocal
+    from app.routers.flood_alerts_router import fetch_cwc_alerts, save_database_snapshot
 
+    while True:
+        db = SessionLocal()
+
+        try:
+            alerts = await asyncio.to_thread(fetch_cwc_alerts)
+
+            save_database_snapshot(db, alerts)
+
+        except Exception as e:
+            print(f"CWC background update failed: {e}")
+
+        finally:
+            db.close()
+
+        await asyncio.sleep(15 * 60)
 app = FastAPI(
     title="ResQFlow AI - Flood Relief & Resource Coordination API",
     description="""

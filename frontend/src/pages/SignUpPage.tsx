@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-
+import api from '../services/api';
 const SignUpPage: React.FC = () => {
   const { setActiveTab } = useApp();
 
@@ -16,51 +16,67 @@ const SignUpPage: React.FC = () => {
   const [loginId, setLoginId] = useState('');
   const [accountCreated, setAccountCreated] = useState(false);
 
-  const handleSubmit = (
-    e: React.FormEvent
-  ) => {
-    e.preventDefault();
+  const handleSubmit = async (
+  e: React.FormEvent
+) => {
+  e.preventDefault();
 
-    setError('');
+  setError('');
 
-    if (
-      !fullName.trim() ||
-      !email.trim() ||
-      !phone.trim() ||
-      !location.trim() ||
-      !password ||
-      !confirmPassword
-    ) {
-      setError(
-        'Please fill in all required fields.'
-      );
-      return;
-    }
+  if (
+    !fullName.trim() ||
+    !email.trim() ||
+    !phone.trim() ||
+    !location.trim() ||
+    !password ||
+    !confirmPassword
+  ) {
+    setError(
+      'Please fill in all required fields.'
+    );
+    return;
+  }
 
-    if (password !== confirmPassword) {
-      setError(
-        'Passwords do not match.'
-      );
-      return;
-    }
+  if (password.length < 8) {
+    setError(
+      'Password must be at least 8 characters.'
+    );
+    return;
+  }
 
-    if (!notifications) {
-  setError(
-    'Please click the checkbox to allow flood notifications before creating your account.'
-  );
-  return;
-}
+  if (password !== confirmPassword) {
+    setError(
+      'Passwords do not match.'
+    );
+    return;
+  }
 
-    // Generate Login ID
-    const generatedLoginId =
-      'RF' +
-      Math.floor(
-        100000 + Math.random() * 900000
-      );
+  if (!notifications) {
+    setError(
+      'Please click the checkbox to allow flood notifications before creating your account.'
+    );
+    return;
+  }
 
-    setLoginId(generatedLoginId);
+  try {
+    const result = await api.communitySignup({
+      full_name: fullName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      location: location.trim(),
+      password
+    });
+
+    setLoginId(result.login_id);
     setAccountCreated(true);
-  };
+  } catch (error) {
+    setError(
+      error instanceof Error
+        ? error.message
+        : 'Failed to create account.'
+    );
+  }
+};
 
   // Success screen
   if (accountCreated) {

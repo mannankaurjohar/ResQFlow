@@ -151,7 +151,7 @@ const [judgeModeStep, setJudgeModeStep] =
         return 'command';
 
       case 'COMMUNITY':
-        return 'report';
+        return 'landing';
 
       case 'VOLUNTEER':
         return 'volunteer';

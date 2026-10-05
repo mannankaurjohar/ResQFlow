@@ -358,9 +358,7 @@ const AdminUserManagementPage: React.FC = () => {
                     Emergency Coordinator
                   </option>
 
-                  <option value="COMMUNITY">
-                    Community
-                  </option>
+                  
 
                   <option value="VOLUNTEER">
                     Volunteer

@@ -34,7 +34,8 @@ const AppContent: React.FC = () => {
   const {
   activeTab,
   notification,
-  judgeMode
+  judgeMode,
+  currentUser
 } = useApp();
 
   useEffect(() => {
@@ -95,9 +96,10 @@ if (judgeMode && activeTab === 'judge-mode') {
         {activeTab === 'flood-alerts' && (
   <FloodAlertsPage />
 )}
-        {activeTab === 'command' && (
-          <AuthorityCommandPage />
-        )}
+{activeTab === 'command' &&
+  currentUser?.role === 'EMERGENCY_COORDINATOR' && (
+    <AuthorityCommandPage />
+  )}
 {activeTab === 'response-units' && (
   <ResponseUnitsPage />
 )}

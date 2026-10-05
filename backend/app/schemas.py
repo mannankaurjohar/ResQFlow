@@ -9,6 +9,12 @@ class UserLogin(BaseModel):
     username: str
     password: str
     role: UserRole
+class CommunitySignupRequest(BaseModel):
+    full_name: str
+    email: EmailStr
+    phone: str
+    location: str
+    password: str = Field(..., min_length=8, max_length=128)
 
 
 class UserResponse(BaseModel):

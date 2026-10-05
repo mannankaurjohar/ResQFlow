@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Form
 from sqlalchemy.orm import Session
 
+import secrets
+import string
 from app.database import get_db
 from app.models import User, UserRole
 from app.schemas import (
     UserLogin,
+    CommunitySignupRequest,
     Token,
     UserResponse,
     WorkerCreate,
@@ -30,8 +33,10 @@ def login(
     login_data: UserLogin,
     db: Session = Depends(get_db)
 ):
+    login_id = login_data.username.strip()
+
     user = db.query(User).filter(
-        User.username == login_data.username
+        User.username == login_id
     ).first()
 
     if not user:
@@ -57,7 +62,19 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    if user.role != login_data.role:
+    actual_role = (
+        user.role.value
+        if hasattr(user.role, "value")
+        else str(user.role)
+    )
+
+    requested_role = (
+        login_data.role.value
+        if hasattr(login_data.role, "value")
+        else str(login_data.role)
+    )
+
+    if requested_role.strip().upper() != actual_role.strip().upper():
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid login credentials",
@@ -66,8 +83,8 @@ def login(
 
     access_token = create_access_token(
         data={
-            "sub": user.username,
-            "role": user.role.value
+            "sub": login_id,
+            "role": actual_role
         }
     )
 
@@ -77,7 +94,64 @@ def login(
         user=user,
         password_reset_required=user.password_reset_required
     )
+@router.post("/community-signup")
+def community_signup(
+    signup_data: CommunitySignupRequest,
+    db: Session = Depends(get_db)
+):
+    full_name = signup_data.full_name.strip()
+    email = signup_data.email.strip().lower()
+    phone = signup_data.phone.strip()
+    location = signup_data.location.strip()
 
+    if not full_name or not email or not phone or not location:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="All required fields must be provided"
+        )
+
+    existing_email = db.query(User).filter(
+        User.email == email
+    ).first()
+
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email already exists"
+        )
+
+    while True:
+        number = secrets.randbelow(900000) + 100000
+        login_id = f"RF{number}"
+
+        existing_user = db.query(User).filter(
+            User.username == login_id
+        ).first()
+
+        if not existing_user:
+            break
+
+    new_user = User(
+        username=login_id,
+        email=email,
+        full_name=full_name,
+        hashed_password=get_password_hash(
+            signup_data.password
+        ),
+        role=UserRole.COMMUNITY,
+        phone=phone,
+        is_active=True,
+        password_reset_required=False,
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return {
+        "login_id": login_id,
+        "message": "Community account created successfully"
+    }
 @router.post("/token")
 def oauth2_token(
     username: str = Form(...),
@@ -155,8 +229,6 @@ def get_me(
 # ADMIN USER MANAGEMENT
 # -------------------------------------------------
 
-import secrets
-import string
 
 
 def generate_login_id(role: UserRole, db: Session) -> str:

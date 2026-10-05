@@ -667,6 +667,12 @@ class AuditLog(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(IST))
     prev_hash = Column(String(64), nullable=True)
     curr_hash = Column(String(64), nullable=False)
+class CWCAlertSnapshot(Base):
+    __tablename__= "cwc_alert_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    alerts_json = Column(Text, nullable=False)
+    fetched_at = Column(DateTime, default=lambda: datetime.now(IST), nullable=False)
 class OfficialWarehouse(Base):
     __tablename__ = "official_warehouses"
 

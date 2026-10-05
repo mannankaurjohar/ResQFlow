@@ -1,20 +1,27 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 import csv
 import io
 import requests
 import json
 from pathlib import Path
+
+from app.database import get_db
+from app.models import CWCAlertSnapshot
+
 router = APIRouter(
     prefix="/flood-alerts",
     tags=["Flood Alerts"]
 )
 
 CWC_URL = "https://aff.india-water.gov.in/textdata/Floodday_table_view_header.txt"
+
 SNAPSHOT_FILE = (
     Path(__file__).resolve().parents[2]
     / "data"
     / "cwc_alerts_snapshot.json"
 )
+
 ALERT_LEVELS = {
     "extreme": "RED",
     "severe": "ORANGE",
@@ -22,8 +29,6 @@ ALERT_LEVELS = {
     "normal": "GREEN",
 }
 
-# Stores the last successfully retrieved CWC data.
-# This prevents a temporary CWC outage from breaking the application.
 _last_successful_alerts = []
 
 
@@ -62,26 +67,45 @@ def fetch_cwc_alerts():
         })
 
     return alerts
-def save_snapshot(alerts):
+
+
+def save_database_snapshot(db: Session, alerts):
+    snapshot = (
+        db.query(CWCAlertSnapshot)
+        .order_by(CWCAlertSnapshot.id.desc())
+        .first()
+    )
+
+    alerts_json = json.dumps(alerts)
+
+    if snapshot:
+        snapshot.alerts_json = alerts_json
+    else:
+        snapshot = CWCAlertSnapshot(
+            alerts_json=alerts_json
+        )
+        db.add(snapshot)
+
+    db.commit()
+
+
+def load_database_snapshot(db: Session):
+    snapshot = (
+        db.query(CWCAlertSnapshot)
+        .order_by(CWCAlertSnapshot.id.desc())
+        .first()
+    )
+
+    if not snapshot:
+        return []
+
     try:
-        SNAPSHOT_FILE.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(SNAPSHOT_FILE, "w", encoding="utf-8") as f:
-            json.dump(
-                {
-                    "status": "SNAPSHOT",
-                    "source": "Central Water Commission",
-                    "count": len(alerts),
-                    "alerts": alerts,
-                },
-                f,
-                indent=2,
-            )
-    except Exception as e:
-        print(f"Could not save CWC snapshot: {e}")
+        return json.loads(snapshot.alerts_json)
+    except (json.JSONDecodeError, TypeError):
+        return []
 
 
-def load_snapshot():
+def load_seed_snapshot():
     try:
         if not SNAPSHOT_FILE.exists():
             return []
@@ -91,12 +115,14 @@ def load_snapshot():
 
         return data.get("alerts", [])
 
-    except Exception as e:
-        print(f"Could not load CWC snapshot: {e}")
+    except Exception:
         return []
 
+
 @router.get("")
-def get_flood_alerts():
+def get_flood_alerts(
+    db: Session = Depends(get_db)
+):
     global _last_successful_alerts
 
     try:
@@ -104,8 +130,8 @@ def get_flood_alerts():
 
         _last_successful_alerts = alerts
 
-# Save the latest successful CWC data locally
-        save_snapshot(alerts)
+        # Persist latest successful CWC data in the database.
+        save_database_snapshot(db, alerts)
 
         return {
             "status": "LIVE",
@@ -114,15 +140,19 @@ def get_flood_alerts():
             "alerts": alerts,
         }
 
-    except requests.RequestException as e:
-        print(f"CWC request failed: {e}")
-
-    # First try the current server-memory cache
+    except requests.RequestException:
         alerts = _last_successful_alerts
 
-    # If server memory is empty, load the local snapshot
+        # Database is the primary fallback.
         if not alerts:
-            alerts = load_snapshot()
+            alerts = load_database_snapshot(db)
+
+        # JSON is only the initial seed fallback.
+        if not alerts:
+            alerts = load_seed_snapshot()
+
+            if alerts:
+                save_database_snapshot(db, alerts)
 
         if alerts:
             return {
@@ -145,4 +175,5 @@ def get_flood_alerts():
                 "Live CWC data is temporarily unavailable and "
                 "no previous CWC snapshot is available."
             ),
-        }   
+            
+        }

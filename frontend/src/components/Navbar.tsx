@@ -228,7 +228,8 @@ export const Navbar: React.FC = () => {
 
       {/* OTHER AUTHENTICATED ROLES */}
 
-      {isAuthenticated && currentUser?.role !== 'RESPONSE_UNIT_OPERATOR' && (
+      {isAuthenticated &&
+ currentUser?.role === 'EMERGENCY_COORDINATOR' && (
   <>
     <button
       onClick={() => setActiveTab('command')}

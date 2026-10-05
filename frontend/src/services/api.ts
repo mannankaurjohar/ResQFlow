@@ -604,7 +604,34 @@ async assignResponseTask(
 
     return res.json();
   },
+async communitySignup(data: {
+  full_name: string;
+  email: string;
+  phone: string;
+  location: string;
+  password: string;
+}) {
+  const res = await fetch(
+    API_BASE + '/auth/community-signup',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(data)
+    }
+  );
 
+  const result = await res.json();
+
+  if (!res.ok) {
+    throw new Error(
+      result?.detail || 'Failed to create account'
+    );
+  }
+
+  return result;
+},
   async getPriorityExplanation(
     requestId: number
   ): Promise<ExplainPriorityResponse> {
