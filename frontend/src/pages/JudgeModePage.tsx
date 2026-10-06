@@ -434,7 +434,124 @@ function FlowVisualization({ items }: { items: string[] }) {
     </div>
   );
 }
+export function JudgeModeLiveBar() {
+  const {
+    judgeModeStep,
+    setJudgeModeStep,
+    setJudgeMode,
+    activeTab,
+    setActiveTab,
+  } = useApp();
 
+  const safeStep = Math.min(
+    Math.max(judgeModeStep, 0),
+    steps.length - 1
+  );
+
+  const step = steps[safeStep];
+  const StepIcon = step.icon;
+
+  const nextStep = () => {
+    if (safeStep < steps.length - 1) {
+      setJudgeModeStep(safeStep + 1);
+      setActiveTab('judge-mode');
+    } else {
+      setJudgeMode(false);
+      setJudgeModeStep(0);
+      setActiveTab('landing');
+    }
+  };
+
+  const previousStep = () => {
+    if (safeStep > 0) {
+      setJudgeModeStep(safeStep - 1);
+      setActiveTab('judge-mode');
+    }
+  };
+
+  const exitDemo = () => {
+    setJudgeMode(false);
+    setJudgeModeStep(0);
+    setActiveTab('landing');
+  };
+
+  return (
+    <div className="fixed bottom-5 left-1/2 z-[9999] w-[min(920px,calc(100%-32px))] -translate-x-1/2">
+      <div className="rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-2xl backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div
+            className={`hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:flex ${
+              accentClasses[step.accent]
+            }`}
+          >
+            <StepIcon className="h-5 w-5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-terracotta">
+                Judge Mode
+              </span>
+
+              <span className="text-[10px] text-slate-400">
+                {safeStep + 1} / {steps.length}
+              </span>
+            </div>
+
+            <p className="truncate text-sm font-bold text-navy">
+              {step.title}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('judge-mode')}
+            className="hidden rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 sm:block"
+          >
+            Back to Explanation
+          </button>
+
+          <button
+            type="button"
+            onClick={previousStep}
+            disabled={safeStep === 0}
+            className="rounded-lg border border-slate-200 p-2 text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Previous"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={nextStep}
+            className="flex items-center gap-1.5 rounded-lg bg-navy px-3 py-2 text-xs font-bold text-white transition-colors hover:opacity-90"
+          >
+            {safeStep === steps.length - 1 ? 'Finish' : 'Next'}
+            <ChevronRight className="h-4 w-4" />
+          </button>
+
+          <button
+            type="button"
+            onClick={exitDemo}
+            className="rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            title="Exit Judge Mode"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-slate-100">
+          <div
+            className="h-full rounded-full bg-terracotta transition-all duration-300"
+            style={{
+              width: `${((safeStep + 1) / steps.length) * 100}%`,
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function JudgeModePage() {
   const {
     judgeModeStep,

@@ -30,7 +30,8 @@ import SignUpPage from './pages/SignUpPage';
 import ResponseUnitsPage from './pages/ResponseUnitsPage';
 import ResponseAssignmentPage from './pages/ResponseAssignmentPage';
 import ResponseUnitTasksPage from './pages/ResponseUnitTasksPage';
-import JudgeModePage from './pages/JudgeModePage';
+
+import JudgeModePage, { JudgeModeLiveBar } from './pages/JudgeModePage';
 const AppContent: React.FC = () => {
   const {
   activeTab,
@@ -148,10 +149,14 @@ if (judgeMode && activeTab === 'judge-mode') {
 
       </main>
 
-      <ExplainPriorityModal />
-      <AiMatchingModal />
+     <ExplainPriorityModal />
+<AiMatchingModal />
 
-      <Footer />
+{judgeMode && activeTab !== 'judge-mode' && (
+  <JudgeModeLiveBar />
+)}
+
+<Footer />
 
     </div>
   );
