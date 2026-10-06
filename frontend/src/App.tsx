@@ -4,6 +4,7 @@ import {
   AppProvider,
   useApp
 } from './context/AppContext';
+import { LanguageProvider } from './i18n/LanguageContext';
 import FloodAlertsPage from './pages/FloodAlertsPage';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -87,9 +88,7 @@ if (judgeMode && activeTab === 'judge-mode') {
       : ''
   }`}
 >
- {judgeMode && activeTab !== 'judge-mode' && (
-    <JudgeModePage />
-  )}
+ 
         {activeTab === 'landing' && (
           <LandingPage />
         )}
@@ -161,8 +160,10 @@ if (judgeMode && activeTab === 'judge-mode') {
 
 export default function App() {
   return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
+    <LanguageProvider>
+      <AppProvider>
+        <AppContent />
+      </AppProvider>
+    </LanguageProvider>
   );
 }

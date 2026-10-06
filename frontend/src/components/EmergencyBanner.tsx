@@ -1,9 +1,11 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { AlertOctagon, Siren, ArrowRight } from 'lucide-react';
+import { useTranslation } from '../i18n/LanguageContext';
+import { AlertOctagon, ArrowRight } from 'lucide-react';
 
 export const EmergencyBanner: React.FC = () => {
   const { isEmergencyMode, isEscalated, setActiveTab } = useApp();
+  const { t } = useTranslation();
 
   if (!isEmergencyMode && !isEscalated) return null;
 
@@ -13,7 +15,9 @@ export const EmergencyBanner: React.FC = () => {
         <div className="flex items-center space-x-2">
           <AlertOctagon className="w-5 h-5 animate-pulse text-amber-300 shrink-0" />
           <span className="font-bold tracking-wide">
-            {isEscalated ? '🚨 FLASH FLOOD SURGE IN PROGRESS: Zone B Delta breached 3.2m water level. Priority queue escalated.' : '⚠️ EMERGENCY RESPONSE PROTOCOL ACTIVE: High-density critical requests elevated.'}
+            {isEscalated
+              ? t('emergencyBanner.flashFlood')
+              : t('emergencyBanner.protocolActive')}
           </span>
         </div>
         <div className="flex items-center space-x-3">
@@ -21,7 +25,7 @@ export const EmergencyBanner: React.FC = () => {
             onClick={() => setActiveTab('command')}
             className="bg-white/15 hover:bg-white/25 text-white font-medium px-3 py-1 rounded text-xs transition-colors flex items-center space-x-1"
           >
-            <span>Open Command Map</span>
+            <span>{t('emergencyBanner.openCommandMap')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -29,4 +33,3 @@ export const EmergencyBanner: React.FC = () => {
     </div>
   );
 };
-

@@ -8,13 +8,14 @@ import {
   Phone,
   Users,
   Navigation,
-  Send,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useTranslation } from '../i18n/LanguageContext';
 import { LocationPicker } from '../components/LocationPicker';
-import api from '../services/api';
-const EvacuationRequestPage: React.FC = () => {
+
+export const EvacuationRequestPage: React.FC = () => {
   const { setActiveTab } = useApp();
+  const { t } = useTranslation();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -37,134 +38,150 @@ const EvacuationRequestPage: React.FC = () => {
 
   const [submitted, setSubmitted] = useState(false);
   const [requestId, setRequestId] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const situationOptions = [
+    { value: 'Trapped by floodwater', key: 'evac.situation.trapped' },
+    { value: 'Water level is rapidly rising', key: 'evac.situation.rising' },
+    { value: 'Area is becoming isolated', key: 'evac.situation.isolated' },
+    { value: 'Building is unsafe', key: 'evac.situation.unsafe' },
+    { value: 'Roads / routes are blocked', key: 'evac.situation.blocked' },
+    { value: 'Immediate evacuation required', key: 'evac.situation.immediate' },
+  ];
+
+  const mobilityOptions = [
+    { value: 'Can move independently', key: 'evac.mobility.independent' },
+    { value: 'Need physical assistance', key: 'evac.mobility.assistance' },
+    { value: 'Cannot move without assistance', key: 'evac.mobility.cannotMove' },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!name.trim() || !phone.trim()) {
-    alert('Please enter your name and phone number.');
-    return;
-  }
-
-  if (
-    locationLatitude === null ||
-    locationLongitude === null ||
-    !locationName.trim()
-  ) {
-    alert('Please select your current location from the map.');
-    return;
-  }
-
-  if (!situation) {
-    alert('Please select the current situation.');
-    return;
-  }
-
-  if (!mobility) {
-    alert('Please select the mobility assistance required.');
-    return;
-  }
-
-  try {
-    const response = await fetch(
-      'http://127.0.0.1:8000/api/requests/citizen',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          request_type: 'EVACUATION',
-
-          reporter_name: name.trim(),
-          reporter_phone: phone.trim(),
-
-          location_name: locationName.trim(),
-          latitude: locationLatitude,
-          longitude: locationLongitude,
-
-          affected_people: Number(people),
-          children: Number(children),
-          elderly: Number(elderly),
-
-          situation_flags: [situation],
-
-          medical_emergency: medicalEmergency,
-
-          mobility_assistance:
-            mobility === 'Can move independently'
-              ? 0
-              : mobility === 'Need physical assistance'
-                ? 1
-                : 2,
-
-          immediate_danger:
-            situation === 'Immediate evacuation required'
-              ? 'YES'
-              : 'NOT_SURE',
-
-          additional_information: [
-            `Mobility assistance: ${mobility}`,
-            `Persons with disabilities: ${disabled}`,
-            additionalInfo.trim(),
-          ]
-            .filter(Boolean)
-            .join(' | '),
-
-          communication_method: 'INTERNET',
-          communication_status: 'RECEIVED',
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        typeof data?.detail === 'string'
-          ? data.detail
-          : JSON.stringify(data?.detail || 'Failed to submit evacuation request')
-      );
+    if (!name.trim() || !phone.trim()) {
+      alert(t('evac.errContact'));
+      return;
     }
 
-    setRequestId(data.tracking_code);
-    setSubmitted(true);
-  } catch (error) {
-    console.error('Evacuation request failed:', error);
+    if (
+      locationLatitude === null ||
+      locationLongitude === null ||
+      !locationName.trim()
+    ) {
+      alert(t('evac.errLocation'));
+      return;
+    }
 
-    alert(
-      error instanceof Error
-        ? error.message
-        : 'Failed to submit evacuation request. Please try again.'
-    );
-  }
-};
+    if (!situation) {
+      alert(t('evac.errSituation'));
+      return;
+    }
+
+    if (!mobility) {
+      alert(t('evac.errMobility'));
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await fetch(
+        'http://127.0.0.1:8000/api/requests/citizen',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            request_type: 'EVACUATION',
+
+            reporter_name: name.trim(),
+            reporter_phone: phone.trim(),
+
+            location_name: locationName.trim(),
+            latitude: locationLatitude,
+            longitude: locationLongitude,
+
+            affected_people: Number(people),
+            children: Number(children),
+            elderly: Number(elderly),
+
+            situation_flags: [situation],
+
+            medical_emergency: medicalEmergency,
+
+            mobility_assistance:
+              mobility === 'Can move independently'
+                ? 0
+                : mobility === 'Need physical assistance'
+                  ? 1
+                  : 2,
+
+            immediate_danger:
+              situation === 'Immediate evacuation required'
+                ? 'YES'
+                : 'NOT_SURE',
+
+            additional_information: [
+              `Mobility assistance: ${mobility}`,
+              `Persons with disabilities: ${disabled}`,
+              additionalInfo.trim(),
+            ]
+              .filter(Boolean)
+              .join(' | '),
+
+            communication_method: 'INTERNET',
+            communication_status: 'RECEIVED',
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          typeof data?.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data?.detail || 'Failed to submit evacuation request')
+        );
+      }
+
+      setRequestId(data.tracking_code);
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Evacuation request failed:', error);
+
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Failed to submit evacuation request. Please try again.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (submitted) {
     return (
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-
         <div className="bg-white rounded-2xl border border-slate/20 shadow-soft overflow-hidden">
-
           <div className="bg-navy px-6 py-8 text-center text-ivory">
             <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center mb-4">
               <CheckCircle2 className="w-9 h-9 text-green-400" />
             </div>
 
             <h1 className="text-2xl font-bold">
-              Evacuation Request Submitted
+              {t('evac.successTitle')}
             </h1>
 
             <p className="text-sm text-slate-light mt-2">
-              Your emergency request has been registered.
+              {t('evac.successDesc')}
             </p>
           </div>
 
           <div className="p-6">
-
             <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center">
               <p className="text-xs text-slate uppercase tracking-wide">
-                Request ID
+                {t('evac.trackingCodeLabel')}
               </p>
 
               <p className="text-2xl font-bold text-navy mt-2 tracking-wider">
@@ -172,7 +189,7 @@ const EvacuationRequestPage: React.FC = () => {
               </p>
 
               <p className="text-xs text-slate mt-2">
-                Keep this ID to track your evacuation request.
+                {t('evac.instructionsHeading')}
               </p>
             </div>
 
@@ -181,34 +198,30 @@ const EvacuationRequestPage: React.FC = () => {
 
               <div>
                 <p className="font-semibold text-amber-800 text-sm">
-                  Emergency response
+                  {t('emergencyBanner.protocolActive')}
                 </p>
 
                 <p className="text-xs text-amber-700 mt-1">
-                  Stay in a safe location if possible and follow
-                  instructions from authorized emergency personnel.
+                  {t('evac.inst1')} {t('evac.inst2')}
                 </p>
               </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 mt-6">
-
               <button
                 onClick={() => setActiveTab('trace')}
                 className="flex-1 px-5 py-3 rounded-xl bg-navy text-ivory font-semibold text-sm hover:opacity-90"
               >
-                Track Request
+                {t('evac.trackBtn')}
               </button>
 
               <button
                 onClick={() => setActiveTab('landing')}
                 className="flex-1 px-5 py-3 rounded-xl border border-slate/30 text-navy font-semibold text-sm hover:bg-slate-50"
               >
-                Return Home
+                {t('common.back')}
               </button>
-
             </div>
-
           </div>
         </div>
       </div>
@@ -217,157 +230,134 @@ const EvacuationRequestPage: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-
       {/* HEADER */}
-
       <div className="mb-6">
-
         <button
           onClick={() => setActiveTab('landing')}
-          className="flex items-center gap-2 text-xs text-slate hover:text-navy mb-4"
+          className="flex items-center gap-2 text-xs text-slate hover:text-navy mb-4 font-semibold"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Home
+          {t('evac.backBtn')}
         </button>
 
         <div className="flex items-start gap-4">
-
           <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
             <Navigation className="w-6 h-6" />
           </div>
 
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold text-navy">
-              Request Evacuation
+              {t('evac.title')}
             </h1>
 
             <p className="text-sm text-slate mt-1">
-              Request emergency evacuation assistance from your current
-              location.
+              {t('evac.subtitle')}
             </p>
           </div>
-
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-
         {/* CONTACT */}
-
         <section className="bg-ivory border border-slate/20 rounded-2xl shadow-soft p-6">
-
           <div className="flex items-center gap-3 mb-5">
-
             <div className="w-9 h-9 rounded-lg bg-navy/5 text-navy flex items-center justify-center">
               <Phone className="w-4 h-4" />
             </div>
 
             <div>
               <h2 className="font-bold text-navy">
-                Contact Information
+                {t('evac.contactHeading')}
               </h2>
 
               <p className="text-xs text-slate">
-                So responders can contact you if required
+                {t('evac.contactSub')}
               </p>
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
             <div>
               <label className="block text-xs font-semibold text-navy mb-2">
-                Name
+                {t('evac.nameLabel')}
               </label>
 
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder={t('evac.namePlaceholder')}
                 className="w-full px-4 py-3 rounded-xl border border-slate/20 bg-white text-sm outline-none focus:border-navy"
               />
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-navy mb-2">
-                Phone Number
+                {t('evac.phoneLabel')}
               </label>
 
               <input
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="10-digit mobile number"
+                placeholder={t('evac.phonePlaceholder')}
                 type="tel"
                 className="w-full px-4 py-3 rounded-xl border border-slate/20 bg-white text-sm outline-none focus:border-navy"
               />
             </div>
-
           </div>
         </section>
 
         {/* LOCATION */}
-
         <section className="bg-ivory border border-slate/20 rounded-2xl shadow-soft p-6">
-
           <div className="flex items-center gap-3 mb-5">
-
             <div className="w-9 h-9 rounded-lg bg-navy/5 text-navy flex items-center justify-center">
               <MapPin className="w-4 h-4" />
             </div>
 
             <div>
               <h2 className="font-bold text-navy">
-                Current Location
+                {t('evac.locationHeading')}
               </h2>
 
               <p className="text-xs text-slate">
-                Select where evacuation is required
+                {t('evac.locationSub')}
               </p>
             </div>
-
           </div>
 
-         <LocationPicker
-  locationName={locationName}
-  latitude={locationLatitude}
-  longitude={locationLongitude}
-  onLocationChange={(name, latitude, longitude) => {
-    setLocationName(name);
-    setLocationLatitude(latitude);
-    setLocationLongitude(longitude);
-  }}
-/>
-
+          <LocationPicker
+            locationName={locationName}
+            latitude={locationLatitude}
+            longitude={locationLongitude}
+            onLocationChange={(locName, latitude, longitude) => {
+              setLocationName(locName);
+              setLocationLatitude(latitude);
+              setLocationLongitude(longitude);
+            }}
+          />
         </section>
 
         {/* PEOPLE */}
-
         <section className="bg-ivory border border-slate/20 rounded-2xl shadow-soft p-6">
-
           <div className="flex items-center gap-3 mb-5">
-
             <div className="w-9 h-9 rounded-lg bg-navy/5 text-navy flex items-center justify-center">
               <Users className="w-4 h-4" />
             </div>
 
             <div>
               <h2 className="font-bold text-navy">
-                People Requiring Evacuation
+                {t('evac.peopleHeading')}
               </h2>
 
               <p className="text-xs text-slate">
-                Help responders understand the group size
+                {t('evac.peopleSub')}
               </p>
             </div>
-
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
             <div>
               <label className="block text-xs font-semibold text-navy mb-2">
-                Total People
+                {t('evac.totalPeople')}
               </label>
 
               <input
@@ -381,7 +371,7 @@ const EvacuationRequestPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-navy mb-2">
-                Children
+                {t('evac.children')}
               </label>
 
               <input
@@ -395,7 +385,7 @@ const EvacuationRequestPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-navy mb-2">
-                Elderly
+                {t('evac.elderly')}
               </label>
 
               <input
@@ -409,7 +399,7 @@ const EvacuationRequestPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-navy mb-2">
-                Persons with Disabilities
+                {t('evac.disabled')}
               </label>
 
               <input
@@ -420,111 +410,81 @@ const EvacuationRequestPage: React.FC = () => {
                 className="w-full px-4 py-3 rounded-xl border border-slate/20 bg-white text-sm"
               />
             </div>
-
           </div>
         </section>
 
         {/* SITUATION */}
-
         <section className="bg-ivory border border-slate/20 rounded-2xl shadow-soft p-6">
-
           <div className="flex items-center gap-3 mb-5">
-
             <div className="w-9 h-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center">
               <AlertTriangle className="w-4 h-4" />
             </div>
 
             <div>
               <h2 className="font-bold text-navy">
-                Current Situation
+                {t('evac.situationHeading')}
               </h2>
 
               <p className="text-xs text-slate">
-                Select the condition that best describes your situation
+                {t('evac.situationSub')}
               </p>
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
-            {[
-              'Trapped by floodwater',
-              'Water level is rapidly rising',
-              'Area is becoming isolated',
-              'Building is unsafe',
-              'Roads / routes are blocked',
-              'Immediate evacuation required',
-            ].map(option => (
-
+            {situationOptions.map(option => (
               <button
-                key={option}
+                key={option.value}
                 type="button"
-                onClick={() => setSituation(option)}
+                onClick={() => setSituation(option.value)}
                 className={`text-left px-4 py-3 rounded-xl border text-sm transition ${
-                  situation === option
+                  situation === option.value
                     ? 'border-red-500 bg-red-50 text-red-700 font-semibold'
                     : 'border-slate/20 bg-white text-slate hover:border-navy'
                 }`}
               >
-                {option}
+                {t(option.key)}
               </button>
-
             ))}
-
           </div>
-
         </section>
 
         {/* ASSISTANCE */}
-
         <section className="bg-ivory border border-slate/20 rounded-2xl shadow-soft p-6">
-
           <div className="flex items-center gap-3 mb-5">
-
             <div className="w-9 h-9 rounded-lg bg-navy/5 text-navy flex items-center justify-center">
               <ClipboardList className="w-4 h-4" />
             </div>
 
             <div>
               <h2 className="font-bold text-navy">
-                Evacuation Assistance
+                {t('evac.assistanceHeading')}
               </h2>
 
               <p className="text-xs text-slate">
-                Tell responders what assistance is needed
+                {t('evac.assistanceSub')}
               </p>
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-
-            {[
-              'Can move independently',
-              'Need physical assistance',
-              'Cannot move without assistance',
-            ].map(option => (
-
+            {mobilityOptions.map(option => (
               <button
-                key={option}
+                key={option.value}
                 type="button"
-                onClick={() => setMobility(option)}
+                onClick={() => setMobility(option.value)}
                 className={`px-4 py-3 rounded-xl border text-sm transition ${
-                  mobility === option
+                  mobility === option.value
                     ? 'border-navy bg-navy/5 text-navy font-semibold'
                     : 'border-slate/20 bg-white text-slate hover:border-navy'
                 }`}
               >
-                {option}
+                {t(option.key)}
               </button>
-
             ))}
-
           </div>
 
           <label className="flex items-center gap-3 mt-5 p-4 rounded-xl border border-red-200 bg-red-50 cursor-pointer">
-
             <input
               type="checkbox"
               checked={medicalEmergency}
@@ -534,63 +494,47 @@ const EvacuationRequestPage: React.FC = () => {
 
             <div>
               <p className="text-sm font-semibold text-red-700">
-                Medical emergency present
+                {t('evac.medicalEmergencyTitle')}
               </p>
 
               <p className="text-xs text-red-600 mt-0.5">
-                Select this if someone requires urgent medical attention.
+                {t('evac.medicalEmergencySub')}
               </p>
             </div>
-
           </label>
-
         </section>
 
         {/* ADDITIONAL INFO */}
-
         <section className="bg-ivory border border-slate/20 rounded-2xl shadow-soft p-6">
-
           <label className="block text-sm font-bold text-navy mb-2">
-            Additional Information
+            {t('evac.additionalHeading')}
           </label>
 
           <textarea
             value={additionalInfo}
             onChange={e => setAdditionalInfo(e.target.value)}
             rows={4}
-            placeholder="Describe anything else responders should know..."
+            placeholder={t('evac.additionalPlaceholder')}
             className="w-full px-4 py-3 rounded-xl border border-slate/20 bg-white text-sm resize-none outline-none focus:border-navy"
           />
-
         </section>
 
         {/* SUBMIT */}
-
         <div className="bg-navy rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-          <div className="text-ivory">
-
-            <p className="font-bold text-sm">
-              Need immediate evacuation assistance?
-            </p>
-
-            <p className="text-xs text-slate-light mt-1">
-              Submit your location and situation so the response team can
-              assess the request.
-            </p>
-
-          </div>
+          <p className="text-xs text-slate-light">
+            {t('evac.submitNotice')}
+          </p>
 
           <button
             type="submit"
-            className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-terracotta text-white font-bold text-sm hover:opacity-90 shrink-0"
+            disabled={submitting}
+            className="px-6 py-3 rounded-xl bg-terracotta text-white font-bold text-sm hover:bg-terracotta/90 disabled:opacity-50 transition-colors"
           >
-            <Send className="w-4 h-4" />
-            Submit Evacuation Request
+            {submitting
+              ? t('evac.submitting')
+              : t('evac.submitBtn')}
           </button>
-
         </div>
-
       </form>
     </div>
   );

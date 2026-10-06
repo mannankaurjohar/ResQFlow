@@ -1,8 +1,7 @@
-import React, {
-  useState
-} from 'react';
-
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useTranslation } from '../i18n/LanguageContext';
+import { LanguageSelector } from '../components/LanguageSelector';
 import api from '../services/api';
 
 const ChangePasswordPage: React.FC = () => {
@@ -13,108 +12,66 @@ const ChangePasswordPage: React.FC = () => {
     showNotification
   } = useApp();
 
-  const [
-    currentPassword,
-    setCurrentPassword
-  ] = useState('');
+  const { t } = useTranslation();
 
-  const [
-    newPassword,
-    setNewPassword
-  ] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const [
-    confirmPassword,
-    setConfirmPassword
-  ] = useState('');
-
-  const [error, setError] =
-    useState('');
-
-  const [loading, setLoading] =
-    useState(false);
-
-  const handleSubmit = async (
-    e: React.FormEvent
-  ) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setError('');
 
     if (!currentPassword) {
-      setError(
-        'Please enter your current password.'
-      );
+      setError(t('changePassword.errCurrent'));
       return;
     }
 
     if (newPassword.length < 8) {
-      setError(
-        'New password must be at least 8 characters.'
-      );
+      setError(t('changePassword.errMinLen'));
       return;
     }
 
-    if (
-      newPassword !==
-      confirmPassword
-    ) {
-      setError(
-        'New passwords do not match.'
-      );
+    if (newPassword !== confirmPassword) {
+      setError(t('changePassword.errMatch'));
       return;
     }
 
-    if (
-      currentPassword ===
-      newPassword
-    ) {
-      setError(
-        'New password must be different from current password.'
-      );
+    if (currentPassword === newPassword) {
+      setError(t('changePassword.errSame'));
       return;
     }
 
     try {
       setLoading(true);
 
-      const updatedUser =
-        await api.changePassword(
-          currentPassword,
-          newPassword
-        );
-
-      setActiveRole(
-        updatedUser.role
+      const updatedUser = await api.changePassword(
+        currentPassword,
+        newPassword
       );
 
-      showNotification(
-        'Password changed successfully.',
-        'success'
-      );
+      setActiveRole(updatedUser.role);
+      showNotification(t('changePassword.success'), 'success');
 
       switch (updatedUser.role) {
         case 'EMERGENCY_COORDINATOR':
           setActiveTab('command');
           break;
-
         case 'COMMUNITY':
           setActiveTab('report');
           break;
-
         case 'VOLUNTEER':
           setActiveTab('volunteer');
           break;
-
         case 'NGO_MANAGER':
         case 'WAREHOUSE_MANAGER':
           setActiveTab('warehouse');
           break;
-
         case 'DONOR':
           setActiveTab('donor');
           break;
-
         case 'ADMIN':
         default:
           setActiveTab('landing');
@@ -124,7 +81,7 @@ const ChangePasswordPage: React.FC = () => {
       setError(
         err instanceof Error
           ? err.message
-          : 'Failed to change password.'
+          : t('changePassword.failed')
       );
     } finally {
       setLoading(false);
@@ -132,23 +89,26 @@ const ChangePasswordPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-ivory flex items-center justify-center px-4 py-10">
+    <div className="min-h-[calc(100vh-80px)] bg-ivory flex items-center justify-center px-4 py-10 relative">
       <div className="w-full max-w-md">
+        {/* Top bar with language switcher */}
+        <div className="flex items-center justify-end mb-4 px-1">
+          <LanguageSelector variant="standalone" />
+        </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-navy/10 p-8">
-
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-navy">
-              Change Password
+              {t('changePassword.title')}
             </h1>
 
             <p className="text-slate-500 mt-2">
-              Please create a new password before continuing.
+              {t('changePassword.subtitle')}
             </p>
 
             {currentUser && (
               <p className="text-sm text-slate-500 mt-3">
-                Account: {currentUser.username}
+                {t('common.name')}: {currentUser.username}
               </p>
             )}
           </div>
@@ -159,28 +119,21 @@ const ChangePasswordPage: React.FC = () => {
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-5"
-          >
-
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label
                 htmlFor="current-password"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Current Password
+                {t('changePassword.currentPassword')}
               </label>
 
               <input
                 id="current-password"
                 type="password"
                 value={currentPassword}
-                onChange={e =>
-                  setCurrentPassword(
-                    e.target.value
-                  )
-                }
+                onChange={e => setCurrentPassword(e.target.value)}
+                placeholder={t('changePassword.currentPasswordPlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="current-password"
               />
@@ -191,24 +144,21 @@ const ChangePasswordPage: React.FC = () => {
                 htmlFor="new-password"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                New Password
+                {t('changePassword.newPassword')}
               </label>
 
               <input
                 id="new-password"
                 type="password"
                 value={newPassword}
-                onChange={e =>
-                  setNewPassword(
-                    e.target.value
-                  )
-                }
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder={t('changePassword.newPasswordPlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="new-password"
               />
 
               <p className="text-xs text-slate-500 mt-2">
-                Minimum 8 characters.
+                {t('changePassword.errMinLen')}
               </p>
             </div>
 
@@ -217,18 +167,15 @@ const ChangePasswordPage: React.FC = () => {
                 htmlFor="confirm-password"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Confirm New Password
+                {t('changePassword.confirmPassword')}
               </label>
 
               <input
                 id="confirm-password"
                 type="password"
                 value={confirmPassword}
-                onChange={e =>
-                  setConfirmPassword(
-                    e.target.value
-                  )
-                }
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder={t('changePassword.confirmPasswordPlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="new-password"
               />
@@ -240,14 +187,11 @@ const ChangePasswordPage: React.FC = () => {
               className="w-full rounded-lg bg-navy px-4 py-3 font-semibold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {loading
-                ? 'Changing Password...'
-                : 'Change Password'}
+                ? t('changePassword.updating')
+                : t('changePassword.submitBtn')}
             </button>
-
           </form>
-
         </div>
-
       </div>
     </div>
   );

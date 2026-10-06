@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useTranslation } from '../i18n/LanguageContext';
 import api from '../services/api';
+
 const SignUpPage: React.FC = () => {
   const { setActiveTab } = useApp();
+  const { t } = useTranslation();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -16,67 +19,56 @@ const SignUpPage: React.FC = () => {
   const [loginId, setLoginId] = useState('');
   const [accountCreated, setAccountCreated] = useState(false);
 
-  const handleSubmit = async (
-  e: React.FormEvent
-) => {
-  e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
 
-  setError('');
+    if (
+      !fullName.trim() ||
+      !email.trim() ||
+      !phone.trim() ||
+      !location.trim() ||
+      !password ||
+      !confirmPassword
+    ) {
+      setError(t('signup.errFields'));
+      return;
+    }
 
-  if (
-    !fullName.trim() ||
-    !email.trim() ||
-    !phone.trim() ||
-    !location.trim() ||
-    !password ||
-    !confirmPassword
-  ) {
-    setError(
-      'Please fill in all required fields.'
-    );
-    return;
-  }
+    if (password.length < 8) {
+      setError(t('signup.errPassLen'));
+      return;
+    }
 
-  if (password.length < 8) {
-    setError(
-      'Password must be at least 8 characters.'
-    );
-    return;
-  }
+    if (password !== confirmPassword) {
+      setError(t('signup.errPassMatch'));
+      return;
+    }
 
-  if (password !== confirmPassword) {
-    setError(
-      'Passwords do not match.'
-    );
-    return;
-  }
+    if (!notifications) {
+      setError(t('signup.errNotifications'));
+      return;
+    }
 
-  if (!notifications) {
-    setError(
-      'Please click the checkbox to allow flood notifications before creating your account.'
-    );
-    return;
-  }
+    try {
+      const result = await api.communitySignup({
+        full_name: fullName.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        location: location.trim(),
+        password
+      });
 
-  try {
-    const result = await api.communitySignup({
-      full_name: fullName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      location: location.trim(),
-      password
-    });
-
-    setLoginId(result.login_id);
-    setAccountCreated(true);
-  } catch (error) {
-    setError(
-      error instanceof Error
-        ? error.message
-        : 'Failed to create account.'
-    );
-  }
-};
+      setLoginId(result.login_id);
+      setAccountCreated(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : t('signup.errFields')
+      );
+    }
+  };
 
   // Success screen
   if (accountCreated) {
@@ -84,27 +76,23 @@ const SignUpPage: React.FC = () => {
       <div className="min-h-[calc(100vh-80px)] bg-ivory flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl shadow-sm border border-navy/10 p-8">
-
             <div className="text-center mb-8">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 border border-emerald-200">
-                <span className="text-2xl text-emerald-600">
-                  ✓
-                </span>
+                <span className="text-2xl text-emerald-600">✓</span>
               </div>
 
               <h1 className="text-3xl font-bold text-navy">
-                Account Created
+                {t('signup.successTitle')}
               </h1>
 
               <p className="text-slate-500 mt-2">
-                Your ResQFlow account has been
-                created successfully.
+                {t('signup.successSubtitle')}
               </p>
             </div>
 
             <div className="rounded-xl border border-navy/10 bg-ivory p-5 text-center">
               <p className="text-sm font-medium text-slate-500">
-                Your Login ID
+                {t('signup.yourLoginId')}
               </p>
 
               <p className="mt-2 text-2xl font-bold tracking-wider text-navy">
@@ -112,22 +100,17 @@ const SignUpPage: React.FC = () => {
               </p>
 
               <p className="mt-3 text-xs text-slate-500">
-                Please save this Login ID.
-                You will use it to sign in
-                to ResQFlow.
+                {t('signup.successSubtitle')}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() => {
-                setActiveTab('login');
-              }}
+              onClick={() => setActiveTab('login')}
               className="w-full mt-6 rounded-lg bg-navy px-4 py-3 font-semibold text-white transition hover:bg-navy/90"
             >
-              Go to Login
+              {t('signup.proceedToLogin')}
             </button>
-
           </div>
         </div>
       </div>
@@ -138,41 +121,32 @@ const SignUpPage: React.FC = () => {
     <div className="min-h-[calc(100vh-80px)] bg-ivory flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-sm border border-navy/10 p-8">
-
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-navy">
-              Sign Up
+              {t('signup.title')}
             </h1>
 
             <p className="text-slate-500 mt-2">
-              Create your ResQFlow citizen account
+              {t('signup.subtitle')}
             </p>
           </div>
 
-          
-
-          <form
-            onSubmit={handleSubmit}
-            className="space-y-4"
-          >
-
+          <form onSubmit={handleSubmit} className="space-y-4">
             {/* Full Name */}
             <div>
               <label
                 htmlFor="fullName"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Full Name
+                {t('signup.fullName')}
               </label>
 
               <input
                 id="fullName"
                 type="text"
                 value={fullName}
-                onChange={e =>
-                  setFullName(e.target.value)
-                }
-                placeholder="Enter your full name"
+                onChange={e => setFullName(e.target.value)}
+                placeholder={t('signup.fullNamePlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="name"
               />
@@ -184,17 +158,15 @@ const SignUpPage: React.FC = () => {
                 htmlFor="email"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Email Address
+                {t('signup.email')}
               </label>
 
               <input
                 id="email"
                 type="email"
                 value={email}
-                onChange={e =>
-                  setEmail(e.target.value)
-                }
-                placeholder="Enter your email address"
+                onChange={e => setEmail(e.target.value)}
+                placeholder={t('signup.emailPlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="email"
               />
@@ -206,17 +178,15 @@ const SignUpPage: React.FC = () => {
                 htmlFor="phone"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Phone Number
+                {t('signup.phone')}
               </label>
 
               <input
                 id="phone"
                 type="tel"
                 value={phone}
-                onChange={e =>
-                  setPhone(e.target.value)
-                }
-                placeholder="Enter your phone number"
+                onChange={e => setPhone(e.target.value)}
+                placeholder={t('signup.phonePlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="tel"
               />
@@ -228,17 +198,15 @@ const SignUpPage: React.FC = () => {
                 htmlFor="location"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Location
+                {t('signup.location')}
               </label>
 
               <input
                 id="location"
                 type="text"
                 value={location}
-                onChange={e =>
-                  setLocation(e.target.value)
-                }
-                placeholder="City / area"
+                onChange={e => setLocation(e.target.value)}
+                placeholder={t('signup.locationPlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="address-level2"
               />
@@ -250,17 +218,15 @@ const SignUpPage: React.FC = () => {
                 htmlFor="password"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Password
+                {t('signup.password')}
               </label>
 
               <input
                 id="password"
                 type="password"
                 value={password}
-                onChange={e =>
-                  setPassword(e.target.value)
-                }
-                placeholder="Create a password"
+                onChange={e => setPassword(e.target.value)}
+                placeholder={t('signup.passwordPlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="new-password"
               />
@@ -272,19 +238,15 @@ const SignUpPage: React.FC = () => {
                 htmlFor="confirmPassword"
                 className="block text-sm font-medium text-navy mb-2"
               >
-                Confirm Password
+                {t('signup.confirmPassword')}
               </label>
 
               <input
                 id="confirmPassword"
                 type="password"
                 value={confirmPassword}
-                onChange={e =>
-                  setConfirmPassword(
-                    e.target.value
-                  )
-                }
-                placeholder="Confirm your password"
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder={t('signup.confirmPasswordPlaceholder')}
                 className="w-full rounded-lg border border-navy/15 bg-white px-4 py-3 text-navy outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/10"
                 autoComplete="new-password"
               />
@@ -296,48 +258,40 @@ const SignUpPage: React.FC = () => {
                 <input
                   type="checkbox"
                   checked={notifications}
-                  onChange={e =>
-                    setNotifications(
-                      e.target.checked
-                    )
-                  }
+                  onChange={e => setNotifications(e.target.checked)}
                   className="mt-1 h-4 w-4 accent-terracotta"
                 />
 
                 <span className="text-sm text-slate-600">
-                  I agree to receive flood alerts
-                  from ResQFlow by email and SMS.
+                  {t('signup.notifyCheckbox')}
                 </span>
               </label>
             </div>
 
-            {/* Create Account */}
-{error && (
-  <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-    {error}
-  </div>
-)}
+            {/* Error message */}
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
-<button
-  type="submit"
-  className="w-full rounded-lg bg-navy px-4 py-3 font-semibold text-white transition hover:bg-navy/90"
->
-  Create Account
-</button>
+            <button
+              type="submit"
+              className="w-full rounded-lg bg-navy px-4 py-3 font-semibold text-white transition hover:bg-navy/90"
+            >
+              {t('signup.createBtn')}
+            </button>
 
             <p className="text-center text-sm text-slate-500 pt-2">
-              Already have an account?{' '}
+              {t('signup.hasAccount')}{' '}
               <button
                 type="button"
-                onClick={() => {
-                  setActiveTab('login');
-                }}
+                onClick={() => setActiveTab('login')}
                 className="font-semibold text-terracotta hover:underline"
               >
-                Login
+                {t('signup.loginLink')}
               </button>
             </p>
-
           </form>
         </div>
       </div>
