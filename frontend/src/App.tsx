@@ -95,10 +95,9 @@ if (judgeMode && activeTab === 'judge-mode') {
         {activeTab === 'flood-alerts' && (
   <FloodAlertsPage />
 )}
-{activeTab === 'command' &&
-  currentUser?.role === 'EMERGENCY_COORDINATOR' && (
-    <AuthorityCommandPage />
-  )}
+{activeTab === 'command' && (
+  <AuthorityCommandPage />
+)}
 {activeTab === 'response-units' && (
   <ResponseUnitsPage />
 )}
