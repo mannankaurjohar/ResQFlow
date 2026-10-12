@@ -1,6 +1,5 @@
-
+from app.routers.public_data_router import get_public_facilities
 import json
-import httpx
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -174,43 +173,17 @@ async def get_facility_support_recommendation(
             detail="Request not found"
         )
 
-    public_data_url = (
-        "http://127.0.0.1:8000"
-        "/api/public-data/facilities"
+    
+    data = await get_public_facilities(
+        region="nashik",
+        latitude=20.0059,
+        longitude=73.7897,
+        radius_m=15000,
+        facility_type="all",
     )
 
-    params = {
-        "region": "nashik",
-        "facility_type": "all"
-    }
+    facilities = data.get("facilities", [])
 
-    try:
-        async with httpx.AsyncClient(
-            timeout=140.0
-        ) as client:
-
-            response = await client.get(
-                public_data_url,
-                params=params
-            )
-
-        response.raise_for_status()
-
-    except httpx.HTTPError as exc:
-        raise HTTPException(
-            status_code=502,
-            detail=(
-                "Unable to retrieve public facility data: "
-                + str(exc)
-            )
-        )
-
-    data = response.json()
-
-    facilities = data.get(
-        "facilities",
-        []
-    )
 
     return match_facilities_for_request(
         request=req,
