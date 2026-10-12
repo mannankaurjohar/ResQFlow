@@ -1579,20 +1579,28 @@ export const AuthorityCommandPage: React.FC = () => {
 
                             <button
                               onClick={async () => {
-                                if (req.request_type?.toUpperCase() === 'EVACUATION') {
-                                  await api.approveEvacuation(req.id);
+  if (req.request_type?.toUpperCase() === 'EVACUATION') {
+    try {
+      await api.approveEvacuation(req.id);
 
-const [requestData, deliveryData] = await Promise.all([
-  api.getRequests(),
-  api.getDeliveries()
-]);
+      showNotification('Evacuation approved successfully.');
 
-setRequests(requestData);
-setDeliveries(deliveryData);
-                                } else {
-                                  setActiveMatchModalRequest(req);
-                                }
-                              }}
+      const requestData = await api.getRequests();
+      setRequests(requestData);
+
+      api.getDeliveries()
+        .then(setDeliveries)
+        .catch(console.error);
+    } catch (error: any) {
+      console.error('Evacuation approval failed:', error);
+      showNotification(
+        error?.message || 'Evacuation approval failed.'
+      );
+    }
+  } else {
+    setActiveMatchModalRequest(req);
+  }
+}}
                               className="bg-terracotta hover:bg-terracotta-hover text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
                             >
                               {req.request_type?.toUpperCase() === 'EVACUATION'
