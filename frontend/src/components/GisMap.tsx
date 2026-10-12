@@ -264,8 +264,21 @@ export const GisMap: React.FC<GisMapProps> = ({
     groups.requests?.clearLayers();
 
     if (layers.requests) {
-      requests.forEach(req => {
-        const isCritical =
+  requests.forEach(req => {
+    if (
+      req.lat == null ||
+      req.lon == null ||
+      !Number.isFinite(Number(req.lat)) ||
+      !Number.isFinite(Number(req.lon)) ||
+      Number(req.lat) < -90 ||
+      Number(req.lat) > 90 ||
+      Number(req.lon) < -180 ||
+      Number(req.lon) > 180
+    ) {
+      return;
+    }
+
+    const isCritical =
           req.priority_classification ===
             'CRITICAL' ||
           req.priority_score >= 80;
