@@ -1058,10 +1058,7 @@ def receive_inbound_sms(
 # APPROVE EVACUATION REQUEST
 # ============================================================
 
-@router.post(
-    "/{id}/approve-evacuation",
-    response_model=CommunityRequestResponse
-)
+
 @router.post(
     "/{id}/approve-evacuation",
     response_model=CommunityRequestResponse

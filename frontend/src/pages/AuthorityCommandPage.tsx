@@ -1582,6 +1582,13 @@ export const AuthorityCommandPage: React.FC = () => {
   if (req.request_type?.toUpperCase() === 'EVACUATION') {
     try {
       await api.approveEvacuation(req.id);
+      setRequests(prev =>
+  prev.map(r =>
+    r.id === req.id
+      ? { ...r, status: 'ALLOCATED' }
+      : r
+  )
+);
 
       showNotification('Evacuation approved successfully.');
 
