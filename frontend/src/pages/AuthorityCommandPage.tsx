@@ -78,6 +78,10 @@ export const AuthorityCommandPage: React.FC = () => {
     useState<OfficialWarehouse[]>([]);
 
   const [loading, setLoading] = useState(true);
+  
+const [approvingRequestId, setApprovingRequestId] =
+  useState<number | null>(null);
+
   const [showFacilities, setShowFacilities] = useState(false);
   const [deliveries, setDeliveries] = useState<any[]>([]);
   const [deliveryLoading, setDeliveryLoading] = useState(false);
@@ -1577,43 +1581,49 @@ export const AuthorityCommandPage: React.FC = () => {
                           {req.status === 'PENDING' ||
                           req.status === 'VERIFIED' ? (
 
-                            <button
-                              onClick={async () => {
-  if (req.request_type?.toUpperCase() === 'EVACUATION') {
+                          
+<button
+  disabled={approvingRequestId !== null}
+  onClick={async () => {
+    if (req.request_type?.toUpperCase() !== 'EVACUATION') {
+      setActiveMatchModalRequest(req);
+      return;
+    }
+
+    if (approvingRequestId !== null) return;
+
+    setApprovingRequestId(req.id);
+
     try {
       await api.approveEvacuation(req.id);
-      setRequests(prev =>
-  prev.map(r =>
-    r.id === req.id
-      ? { ...r, status: 'ALLOCATED' }
-      : r
-  )
-);
 
       showNotification('Evacuation approved successfully.');
 
-      const requestData = await api.getRequests();
-      setRequests(requestData);
+      const [requestData, deliveryData] = await Promise.all([
+        api.getRequests(),
+        api.getDeliveries()
+      ]);
 
-      api.getDeliveries()
-        .then(setDeliveries)
-        .catch(console.error);
+      setRequests(requestData);
+      setDeliveries(deliveryData);
     } catch (error: any) {
       console.error('Evacuation approval failed:', error);
       showNotification(
         error?.message || 'Evacuation approval failed.'
       );
+    } finally {
+      setApprovingRequestId(null);
     }
-  } else {
-    setActiveMatchModalRequest(req);
-  }
-}}
-                              className="bg-terracotta hover:bg-terracotta-hover text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors"
-                            >
-                              {req.request_type?.toUpperCase() === 'EVACUATION'
-                                ? 'Approve Evacuation'
-                                : 'Match AI'}
-                            </button>
+  }}
+  className="bg-terracotta hover:bg-terracotta-hover text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {approvingRequestId === req.id
+    ? 'Approving...'
+    : req.request_type?.toUpperCase() === 'EVACUATION'
+      ? 'Approve Evacuation'
+      : 'Match AI'}
+</button>
+
 
                           ) : (
 
