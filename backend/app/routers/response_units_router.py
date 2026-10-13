@@ -431,7 +431,10 @@ def track_response_request(
     timeline = []
 
     for index, (status_key, label) in enumerate(lifecycle):
-        if index < current_rank:
+        if index < current_rank or (
+            status_key == "COMPLETED"
+            and current_status == "COMPLETED"
+        ):
             state = "COMPLETED"
         elif index == current_rank:
             state = "CURRENT"
