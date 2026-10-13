@@ -409,7 +409,8 @@ def track_response_request(
                 and assignment.completed_at is not None
             )
         ):
-            current_rank = len(lifecycle)
+            current_rank = len(lifecycle) - 1
+            current_status = "COMPLETED"
         else:
             current_rank = request_rank.get(request_status, 0)
 
