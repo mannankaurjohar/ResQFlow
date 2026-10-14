@@ -84,6 +84,7 @@ def get_response_units(
 ):
     units = (
         db.query(ResponseUnit)
+        .filter(ResponseUnit.status != "DISMANTLED")
         .order_by(ResponseUnit.id.desc())
         .all()
     )
@@ -96,6 +97,7 @@ def get_response_units(
             "location": unit.location,
             "members": unit.members,
             "operator_id": unit.operator_id,
+            "operator": unit.operator.full_name if unit.operator else "Unknown",
             "status": unit.status,
         }
         for unit in units
@@ -133,7 +135,8 @@ def create_response_unit(
     existing_unit = (
         db.query(ResponseUnit)
         .filter(
-            ResponseUnit.operator_id == payload.operator_id
+            ResponseUnit.operator_id == payload.operator_id,
+            ResponseUnit.status != "DISMANTLED",
         )
         .first()
     )
@@ -164,6 +167,7 @@ def create_response_unit(
         "location": unit.location,
         "members": unit.members,
         "operator_id": unit.operator_id,
+        "operator": unit.operator.full_name if unit.operator else "Unknown",
         "status": unit.status,
     }
 
@@ -536,8 +540,10 @@ def get_my_tasks(
     unit = (
         db.query(ResponseUnit)
         .filter(
-            ResponseUnit.operator_id == current_user.id
+            ResponseUnit.operator_id == current_user.id,
+            ResponseUnit.status != "DISMANTLED",
         )
+        .order_by(ResponseUnit.id.desc())
         .first()
     )
 
@@ -636,8 +642,10 @@ def update_task_status(
     unit = (
         db.query(ResponseUnit)
         .filter(
-            ResponseUnit.operator_id == current_user.id
+            ResponseUnit.operator_id == current_user.id,
+            ResponseUnit.status != "DISMANTLED",
         )
+        .order_by(ResponseUnit.id.desc())
         .first()
     )
 
@@ -710,7 +718,7 @@ def update_task_status(
             payload.shelter_destination
         )
 
-        unit.status = "AVAILABLE"
+        unit.status = "DISMANTLED"
 
     elif new_status in {
         "IN_TRANSIT",

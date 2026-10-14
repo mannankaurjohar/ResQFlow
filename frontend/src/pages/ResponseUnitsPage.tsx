@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { User } from '../types';
 import api from '../services/api';
-type UnitStatus = 'AVAILABLE' | 'ASSIGNED' | 'BUSY';
+type UnitStatus = 'AVAILABLE' | 'ASSIGNED' | 'BUSY' | 'DISMANTLED';
 
 type ApprovedRequest = {
   id: number;
@@ -63,7 +63,11 @@ const ResponseUnitsPage: React.FC = () => {
   const [units, setUnits] = useState<ResponseUnit[]>(() => {
     try {
       const saved = localStorage.getItem(RESPONSE_UNITS_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
+      return saved
+  ? JSON.parse(saved).filter(
+      (unit: ResponseUnit) => unit.status !== 'DISMANTLED'
+    )
+  : [];
     } catch {
       return [];
     }
@@ -85,7 +89,30 @@ const ResponseUnitsPage: React.FC = () => {
   
   
 const [operators, setOperators] = useState<User[]>([]);
+useEffect(() => {
+  const loadUnits = async () => {
+    try {
+      const responseUnits = await api.getResponseUnits();
 
+      setUnits(
+        responseUnits.map((unit: any) => ({
+          id: unit.id,
+          name: unit.name,
+          type: unit.unit_type,
+          location: unit.location || '',
+          members: unit.members,
+          operator: unit.operator || 'Unknown',
+          operatorId: unit.operator_id,
+          status: unit.status,
+        }))
+      );
+    } catch (error) {
+      console.error('GET RESPONSE UNITS ERROR:', error);
+    }
+  };
+
+  loadUnits();
+}, []);
 useEffect(() => {
   localStorage.setItem(
     RESPONSE_UNITS_STORAGE_KEY,
@@ -199,11 +226,10 @@ const handleAssignTeam = async () => {
         `Request #${selectedRequestId}`
       }.`
     );
-  } catch (error) {
-    console.error(
-      'ASSIGN RESPONSE TASK ERROR:',
-      error
-    );
+    } catch (error) {
+    console.error('ASSIGN RESPONSE TASK ERROR:', error);
+
+    await loadApprovedRequests();
 
     alert(
       error instanceof Error

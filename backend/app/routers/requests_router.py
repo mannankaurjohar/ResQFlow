@@ -101,11 +101,6 @@ def list_requests(
         query = query.filter(
             ~CommunityRequest.id.in_(
                 db.query(ResponseAssignment.request_id)
-                .filter(
-                    ResponseAssignment.status.notin_(
-                        ["COMPLETED", "CANCELLED"]
-                    )
-                )
             )
         )
 

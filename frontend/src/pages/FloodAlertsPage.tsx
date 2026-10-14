@@ -49,6 +49,9 @@ const FloodAlertsPage: React.FC = () => {
       setError('');
 
       const data = await api.getFloodAlerts();
+      console.log('[FloodAlerts] received:', data?.length, data?.[0]);
+setAlerts(data || []);
+console.log('[FloodAlerts] loaded snapshot alerts');
       setAlerts(data || []);
     } catch (err) {
       setError(t('floodAlerts.errLoad'));

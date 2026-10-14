@@ -456,6 +456,9 @@ class DeliveryResponse(BaseModel):
     recipient_signature: Optional[str] = None
     notes: Optional[str] = None
     created_at: datetime.datetime
+    response_unit_id: Optional[int] = None
+    response_unit_name: Optional[str] = None
+    response_assignment_status: Optional[str] = None
 
     class Config:
         from_attributes = True

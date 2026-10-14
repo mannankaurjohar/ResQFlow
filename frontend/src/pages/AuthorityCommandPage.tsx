@@ -1141,14 +1141,45 @@ const [approvingRequestId, setApprovingRequestId] =
                 delivery.status || ''
               ).toUpperCase();
 
-              const isAllocated =
-                status === 'ALLOCATED';
+              
+const isAllocated =
+  status === 'ALLOCATED';
 
-              const isInTransit =
-                status === 'IN_TRANSIT';
+const isInTransit =
+  status === 'IN_TRANSIT';
 
-              const isDelivered =
-                status === 'DELIVERED';
+const isDelivered =
+  status === 'DELIVERED';
+
+const assignmentStatus = String(
+  delivery.response_assignment_status || ''
+).toUpperCase();
+
+const isTeamAssigned =
+  Boolean(delivery.response_unit_id);
+
+const isOnScene =
+  ['ON_SCENE', 'RESPONDING', 'COMPLETED'].includes(
+    assignmentStatus
+  );
+
+const isResponseCompleted =
+  assignmentStatus === 'COMPLETED';
+
+const isStageInTransit =
+  isInTransit ||
+  isDelivered ||
+  isOnScene ||
+  isResponseCompleted;
+
+const isStageOnScene =
+  isOnScene ||
+  isResponseCompleted;
+
+const isStageCompleted =
+  isDelivered ||
+  isResponseCompleted;
+
 
               const isWorking =
                 deliveryActionId === delivery.id;
@@ -1282,7 +1313,7 @@ const [approvingRequestId, setApprovingRequestId] =
 
                     <span
                       className={
-                        delivery.response_unit_id
+                        isTeamAssigned
                           ? 'text-status-fulfilled'
                           : 'text-slate'
                       }
@@ -1294,7 +1325,7 @@ const [approvingRequestId, setApprovingRequestId] =
 
                     <span
                       className={
-                        isInTransit || isDelivered
+                        isStageInTransit
                           ? 'text-status-fulfilled'
                           : 'text-slate'
                       }
@@ -1306,7 +1337,7 @@ const [approvingRequestId, setApprovingRequestId] =
 
                     <span
                       className={
-                        isDelivered
+                        isStageOnScene
                           ? 'text-status-fulfilled'
                           : 'text-slate'
                       }
@@ -1318,7 +1349,7 @@ const [approvingRequestId, setApprovingRequestId] =
 
                     <span
                       className={
-                        isDelivered
+                        isStageCompleted
                           ? 'text-status-fulfilled'
                           : 'text-slate'
                       }
@@ -1339,7 +1370,8 @@ const [approvingRequestId, setApprovingRequestId] =
                     {/* STEP 1 — CREATE RESPONSE UNIT */}
 
                     {isAllocated &&
-                      !delivery.response_unit_id && (
+                      !delivery.response_unit_id &&
+!delivery.response_assignment_status && (
 
                         <button
                           type="button"

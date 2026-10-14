@@ -1,6 +1,6 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
+from app.models import ResponseAssignment, ResponseUnit
 IST = ZoneInfo("Asia/Kolkata")
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -16,9 +16,49 @@ from app.auth import get_current_user, log_audit_event
 
 router = APIRouter(prefix="/deliveries", tags=["Delivery & Logistics"])
 
+
 @router.get("", response_model=List[DeliveryResponse])
 def list_deliveries(db: Session = Depends(get_db)):
-    return db.query(Delivery).order_by(Delivery.created_at.desc()).all()
+    deliveries = (
+        db.query(Delivery)
+        .order_by(Delivery.created_at.desc())
+        .all()
+    )
+
+    results = []
+
+    for delivery in deliveries:
+        data = DeliveryResponse.model_validate(delivery).model_dump()
+
+        request_id = (
+            db.query(Allocation.request_id)
+            .filter(Allocation.id == delivery.allocation_id)
+            .scalar()
+        )
+
+        assignment = None
+        if request_id is not None:
+            assignment = (
+                db.query(ResponseAssignment)
+                .filter(ResponseAssignment.request_id == request_id)
+                .order_by(ResponseAssignment.assigned_at.desc())
+                .first()
+            )
+
+        if assignment:
+            unit = db.query(ResponseUnit).filter(
+                ResponseUnit.id == assignment.response_unit_id
+            ).first()
+
+            data["response_unit_id"] = assignment.response_unit_id
+            data["response_unit_name"] = (
+                getattr(unit, "name", None) if unit else None
+            )
+            data["response_assignment_status"] = assignment.status
+
+        results.append(data)
+
+    return results
 @router.get("/debug/vehicles")
 def debug_vehicles(db: Session = Depends(get_db)):
     vehicles = db.query(Vehicle).all()
