@@ -159,8 +159,17 @@ const loadApprovedRequests = async () => {
       (request: any) => {
         const status = String(request.status || '').toUpperCase();
 
+        const isApprovedForResponse = [
+          'APPROVED',
+          'ALLOCATED',
+          'PARTIALLY_FULFILLED',
+          'VERIFIED',
+        ].includes(status);
+
         return (
-          (status === 'APPROVED' || status === 'ALLOCATED') &&
+          isApprovedForResponse &&
+          status !== 'DELIVERED' &&
+          status !== 'COMPLETED' &&
           !request.response_assignment_id &&
           !request.response_unit_id &&
           !request.assigned_unit_id &&

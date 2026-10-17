@@ -1,8 +1,12 @@
 ﻿import json
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException,Header
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import hmac
+from app.config import settings
 from datetime import datetime
+import secrets
+import re
 from app.database import get_db
 from app.models import (
     CommunityRequest,
@@ -11,10 +15,13 @@ from app.models import (
     AffectedZone,
     User,
     RequestStatus,
+    RequestClarification,
+    IST,
     SeverityLevel,
     ResponseAssignment,
     Allocation,
     Delivery,
+    UserRole,
     Warehouse,
     ReliefStatus,
 )
@@ -27,11 +34,18 @@ from app.schemas import (
     OverridePriorityRequest,
     VerifyRequestInput,
     CitizenEmergencyRequestCreate,
+    CreateDuplicateClarificationInput,
+    CitizenDuplicateClarificationResponseInput,
     CitizenRequestSyncPayload,
     CitizenSyncResponse,
     CitizenSyncResponseItem,
 )
-from app.auth import get_current_user, get_optional_current_user, log_audit_event
+from app.auth import (
+    get_current_user,
+    get_optional_current_user,
+    log_audit_event,
+    require_role,
+)
 from app.ai.nlp_parser import parse_natural_language_request
 from app.ai.priority_engine import (
     calculate_priority_score,
@@ -44,7 +58,25 @@ router = APIRouter(
     tags=["Community Requests"]
 )
 
+def require_sms_device(
+    token: Optional[str] = Header(
+        default=None,
+        alias="X-ResQFlow-SMS-Token",
+    ),
+):
+    expected = settings.RESQFLOW_SMS_DEVICE_TOKEN
 
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="SMS device integration is not configured.",
+        )
+
+    if not token or not hmac.compare_digest(token, expected):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid SMS device credentials.",
+        )
 # ============================================================
 # NLP PARSING
 # ============================================================
@@ -100,9 +132,17 @@ def list_requests(
     if exclude_assigned:
         query = query.filter(
             ~CommunityRequest.id.in_(
-                db.query(ResponseAssignment.request_id)
-            )
+                db.query(ResponseAssignment.request_id).filter(
+                    ResponseAssignment.status != "CANCELLED"
+                )
+            ),
+            CommunityRequest.status.notin_([
+                RequestStatus.DELIVERED,
+                RequestStatus.REJECTED,
+                RequestStatus.FLAGGED_DUPLICATE,
+            ])
         )
+        
 
     return (
         query
@@ -418,6 +458,69 @@ def create_request(
 # ============================================================
 # GET REQUEST
 # ============================================================
+@router.get("/my-duplicate-clarifications")
+def get_my_duplicate_clarifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role([UserRole.COMMUNITY])
+    ),
+):
+    account_phone = _normalise_clarification_phone(
+        current_user.phone
+    )
+
+    if not account_phone:
+        return []
+
+    requests = (
+        db.query(CommunityRequest)
+        .filter(
+            CommunityRequest.reporter_phone.isnot(None)
+        )
+        .all()
+    )
+
+    notifications = []
+
+    for req in requests:
+        if (
+            _normalise_clarification_phone(req.reporter_phone)
+            != account_phone
+        ):
+            continue
+
+        clarification = (
+            db.query(RequestClarification)
+            .filter(
+                RequestClarification.request_id == req.id,
+                RequestClarification.status == "PENDING",
+            )
+            .order_by(RequestClarification.id.desc())
+            .first()
+        )
+
+        if not clarification:
+            continue
+
+        notifications.append({
+            "id": clarification.id,
+            "request_id": req.id,
+            "tracking_code": req.tracking_code,
+            "message": clarification.message,
+            "created_at": (
+                clarification.created_at.isoformat()
+                if clarification.created_at
+                else None
+            ),
+        })
+
+    notifications.sort(
+        key=lambda item: item["created_at"] or "",
+        reverse=True,
+    )
+
+    return notifications
+
 @router.get(
     "/my-requests",
     response_model=List[CommunityRequestResponse]
@@ -686,6 +789,601 @@ def verify_request(
 
     return req
 
+# ============================================================
+# DUPLICATE CLARIFICATION — SHARED WEBSITE RESPONSE STATE
+# ============================================================
+
+DEFAULT_DUPLICATE_QUESTION = (
+    "We need to verify your request because it may be a duplicate. "
+    "Is this a separate, genuine request? Please explain briefly."
+)
+
+
+def _normalise_clarification_phone(phone: Optional[str]) -> str:
+    return re.sub(r"\D", "", phone or "")
+
+
+def _clarification_payload(item: RequestClarification) -> dict:
+    return {
+        "id": item.id,
+        "request_id": item.request_id,
+        "question": item.question,
+        "message": item.message,
+        "reply_code": item.reply_code,
+        "status": item.status,
+        "response": item.response,
+        "response_channel": item.response_channel,
+        "sms_status": item.sms_status,
+        "sms_error": item.sms_error,
+        "decision": item.decision,
+        "created_at": item.created_at.isoformat() if item.created_at else None,
+        "responded_at": item.responded_at.isoformat() if item.responded_at else None,
+        "reviewed_at": item.reviewed_at.isoformat() if item.reviewed_at else None,
+    }
+
+
+@router.post("/{id}/duplicate-clarification")
+def create_duplicate_clarification(
+    id: int,
+    payload: CreateDuplicateClarificationInput,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role([UserRole.EMERGENCY_COORDINATOR])
+    ),
+):
+    req = (
+        db.query(CommunityRequest)
+        .filter(CommunityRequest.id == id)
+        .first()
+    )
+
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found.")
+
+    if req.status != RequestStatus.FLAGGED_DUPLICATE:
+        raise HTTPException(
+            status_code=409,
+            detail="Only flagged duplicate requests can be clarified.",
+        )
+
+    # Do not create multiple unanswered clarifications for one request.
+    existing = (
+        db.query(RequestClarification)
+        .filter(
+            RequestClarification.request_id == id,
+            RequestClarification.status == "PENDING",
+        )
+        .order_by(RequestClarification.id.desc())
+        .first()
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="This request already has a pending clarification.",
+        )
+
+    question = (payload.question or "").strip() or None
+    message = question or DEFAULT_DUPLICATE_QUESTION
+    reply_code = secrets.token_hex(4).upper()
+
+    sms_message = (
+        f"ResQFlow request {req.tracking_code}: {message}\n"
+        f"Reply by SMS: RF:CLAR|{reply_code}| followed by your answer."
+    )
+
+    clarification = RequestClarification(
+        request_id=id,
+        created_by_id=current_user.id,
+        question=question,
+        message=message,
+        reply_code=reply_code,
+        status="PENDING",
+        sms_status=(
+            "PENDING"
+            if settings.RESQFLOW_SMS_DEVICE_TOKEN
+            else "NOT_CONFIGURED"
+        ),
+    )
+
+    db.add(clarification)
+
+    # Record the authority's clarification action in the existing history.
+    previous_review = (
+        db.query(RequestVerification)
+        .filter(RequestVerification.request_id == id)
+        .order_by(RequestVerification.id.desc())
+        .first()
+    )
+
+    if previous_review:
+        db.add(
+            RequestVerification(
+                request_id=req.id,
+                verified_by_id=current_user.id,
+                is_duplicate=previous_review.is_duplicate,
+                duplicate_of_id=previous_review.duplicate_of_id,
+                similarity_score=previous_review.similarity_score,
+                notes=question or "Default duplicate clarification sent.",
+                action_taken="REQUEST_CLARIFICATION",
+            )
+        )
+
+    log_audit_event(
+        db=db,
+        actor_id=current_user.id,
+        actor_name=current_user.full_name,
+        actor_role=(
+            current_user.role.value
+            if hasattr(current_user.role, "value")
+            else str(current_user.role)
+        ),
+        action="DUPLICATE_CLARIFICATION_CREATED",
+        entity_type="COMMUNITY_REQUEST",
+        entity_id=req.tracking_code,
+        previous_state=RequestStatus.FLAGGED_DUPLICATE.value,
+        new_state=RequestStatus.FLAGGED_DUPLICATE.value,
+        reason=question or "Default clarification question",
+    )
+
+    db.commit()
+    db.refresh(clarification)
+
+    result = _clarification_payload(clarification)
+    result["sms_message"] = sms_message
+    result["sms_delivery_note"] = (
+    "SMS queued for the configured ResQFlow Android device."
+        if clarification.sms_status == "PENDING"
+        else "SMS device integration is not configured."
+    )
+    return result
+
+@router.get("/sms-device/next")
+def get_next_sms_for_device(
+    db: Session = Depends(get_db),
+    _device=Depends(require_sms_device),
+):
+    row = (
+        db.query(RequestClarification, CommunityRequest)
+        .join(
+            CommunityRequest,
+            RequestClarification.request_id == CommunityRequest.id,
+        )
+        .filter(
+            RequestClarification.sms_status == "PENDING",
+            RequestClarification.status == "PENDING",
+        )
+        .order_by(RequestClarification.id.asc())
+        .first()
+    )
+
+    if not row:
+        return {"message": None}
+
+    clarification, req = row
+
+    if not (req.reporter_phone or "").strip():
+        clarification.sms_status = "FAILED"
+        clarification.sms_error = "No registered citizen phone number."
+        db.commit()
+        return {"message": None}
+
+    # Claim atomically so concurrent polls cannot claim the same message.
+    claimed = (
+        db.query(RequestClarification)
+        .filter(
+            RequestClarification.id == clarification.id,
+            RequestClarification.sms_status == "PENDING",
+            RequestClarification.status == "PENDING",
+        )
+        .update(
+            {"sms_status": "SENDING"},
+            synchronize_session=False,
+        )
+    )
+
+    if claimed != 1:
+        db.rollback()
+        return {"message": None}
+
+    db.commit()
+
+    sms_message = (
+        f"ResQFlow request {req.tracking_code}: {clarification.message}\n"
+        f"Reply by SMS: RF:CLAR|{clarification.reply_code}| followed by your answer."
+    )
+
+    return {
+        "id": clarification.id,
+        "to": req.reporter_phone,
+        "text": sms_message,
+    }
+
+
+@router.post("/sms-device/{clarification_id}/result")
+def report_sms_result(
+    clarification_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    _device=Depends(require_sms_device),
+):
+    result = str(payload.get("result", "")).upper()
+
+    if result not in {"SENT", "FAILED"}:
+        raise HTTPException(
+            status_code=400,
+            detail="result must be SENT or FAILED.",
+        )
+
+    clarification = (
+        db.query(RequestClarification)
+        .filter(RequestClarification.id == clarification_id)
+        .first()
+    )
+
+    if not clarification:
+        raise HTTPException(
+            status_code=404,
+            detail="Clarification not found.",
+        )
+
+    if clarification.sms_status != "SENDING":
+        raise HTTPException(
+            status_code=409,
+            detail="Clarification is not awaiting an SMS result.",
+        )
+
+    clarification.sms_status = result
+    clarification.sms_error = (
+        None
+        if result == "SENT"
+        else str(payload.get("error", "Android SMS sending failed."))[:1000]
+    )
+
+    db.commit()
+
+    return {
+        "id": clarification.id,
+        "sms_status": clarification.sms_status,
+    }
+
+
+@router.get("/{id}/duplicate-clarification")
+def get_duplicate_clarification(
+    id: int,
+    phone: str,
+    db: Session = Depends(get_db),
+):
+    req = (
+        db.query(CommunityRequest)
+        .filter(CommunityRequest.id == id)
+        .first()
+    )
+
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found.")
+
+    supplied_phone = _normalise_clarification_phone(phone)
+    registered_phone = _normalise_clarification_phone(req.reporter_phone)
+
+    if (
+        not supplied_phone
+        or not registered_phone
+        or supplied_phone != registered_phone
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="The phone number does not match this request.",
+        )
+
+    clarification = (
+        db.query(RequestClarification)
+        .filter(RequestClarification.request_id == id)
+        .order_by(RequestClarification.id.desc())
+        .first()
+    )
+
+    if not clarification:
+        raise HTTPException(
+            status_code=404,
+            detail="No clarification has been requested for this request.",
+        )
+
+    return _clarification_payload(clarification)
+
+
+@router.post("/{id}/duplicate-clarification/respond")
+def respond_to_duplicate_clarification(
+    id: int,
+    payload: CitizenDuplicateClarificationResponseInput,
+    db: Session = Depends(get_db),
+):
+    req = (
+        db.query(CommunityRequest)
+        .filter(CommunityRequest.id == id)
+        .first()
+    )
+
+    if not req:
+        raise HTTPException(status_code=404, detail="Request not found.")
+
+    supplied_phone = _normalise_clarification_phone(payload.phone)
+    registered_phone = _normalise_clarification_phone(req.reporter_phone)
+
+    if (
+        not supplied_phone
+        or not registered_phone
+        or supplied_phone != registered_phone
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="The phone number does not match this request.",
+        )
+
+    response_text = payload.response.strip()
+    if not response_text:
+        raise HTTPException(
+            status_code=400,
+            detail="Please enter a response.",
+        )
+
+    clarification = (
+        db.query(RequestClarification)
+        .filter(
+            RequestClarification.request_id == id,
+            RequestClarification.status == "PENDING",
+        )
+        .order_by(RequestClarification.id.desc())
+        .first()
+    )
+
+    if not clarification:
+        latest = (
+            db.query(RequestClarification)
+            .filter(RequestClarification.request_id == id)
+            .order_by(RequestClarification.id.desc())
+            .first()
+        )
+
+        if latest and latest.status == "ANSWERED":
+            return _clarification_payload(latest)
+
+        raise HTTPException(
+            status_code=409,
+            detail="There is no pending clarification to answer.",
+        )
+
+    # Conditional update: only the first response can claim PENDING.
+    # A later website/SMS response cannot overwrite the saved answer.
+    updated = (
+        db.query(RequestClarification)
+        .filter(
+            RequestClarification.id == clarification.id,
+            RequestClarification.status == "PENDING",
+        )
+        .update(
+            {
+                RequestClarification.status: "ANSWERED",
+                RequestClarification.response: response_text,
+                RequestClarification.response_channel: "WEBSITE",
+                RequestClarification.responded_at: datetime.now(IST),
+                RequestClarification.updated_at: datetime.now(IST),
+            },
+            synchronize_session=False,
+        )
+    )
+
+    if not updated:
+        db.rollback()
+        latest = (
+            db.query(RequestClarification)
+            .filter(RequestClarification.id == clarification.id)
+            .first()
+        )
+        if latest and latest.status == "ANSWERED":
+            return _clarification_payload(latest)
+
+        raise HTTPException(
+            status_code=409,
+            detail="The clarification could not be answered. Refresh and try again.",
+        )
+
+    db.commit()
+
+    clarification = (
+        db.query(RequestClarification)
+        .filter(RequestClarification.id == clarification.id)
+        .first()
+    )
+
+    return _clarification_payload(clarification)
+
+@router.get("/{id}/duplicate-clarification/authority")
+def get_authority_duplicate_clarification(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role([UserRole.EMERGENCY_COORDINATOR])
+    ),
+):
+    req = (
+        db.query(CommunityRequest)
+        .filter(CommunityRequest.id == id)
+        .first()
+    )
+
+    if not req:
+        raise HTTPException(
+            status_code=404,
+            detail="Request not found."
+        )
+
+    clarification = (
+        db.query(RequestClarification)
+        .filter(RequestClarification.request_id == id)
+        .order_by(RequestClarification.id.desc())
+        .first()
+    )
+
+    if not clarification:
+        raise HTTPException(
+            status_code=404,
+            detail="No clarification exists for this request."
+        )
+
+    return _clarification_payload(clarification)
+
+# ============================================================
+# AUTHORITY DUPLICATE REVIEW
+# ============================================================
+
+@router.post(
+    "/{id}/duplicate-review",
+    response_model=CommunityRequestResponse
+)
+def review_duplicate(
+    id: int,
+    payload: VerifyRequestInput,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_role([UserRole.EMERGENCY_COORDINATOR])
+)
+):
+    action = payload.action.strip().upper()
+
+    allowed_actions = {
+        "CONFIRM_DUPLICATE",
+        "MARK_NOT_DUPLICATE",
+        "REQUEST_CLARIFICATION",
+    }
+
+    if action not in allowed_actions:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Invalid duplicate review action. Use "
+                "CONFIRM_DUPLICATE, MARK_NOT_DUPLICATE "
+                "or REQUEST_CLARIFICATION."
+            )
+        )
+
+    req = (
+        db.query(CommunityRequest)
+        .filter(CommunityRequest.id == id)
+        .first()
+    )
+
+    if not req:
+        raise HTTPException(
+            status_code=404,
+            detail="Request not found"
+        )
+
+    if req.status != RequestStatus.FLAGGED_DUPLICATE:
+        raise HTTPException(
+            status_code=409,
+            detail="Only flagged duplicate requests can be reviewed here."
+        )
+
+    previous_review = (
+        db.query(RequestVerification)
+        .filter(RequestVerification.request_id == req.id)
+        .order_by(RequestVerification.id.desc())
+        .first()
+    )
+
+    if not previous_review:
+        raise HTTPException(
+            status_code=409,
+            detail="Duplicate detection history was not found."
+        )
+
+    if action == "CONFIRM_DUPLICATE":
+        if not payload.duplicate_of_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Select the original request before confirming a duplicate."
+            )
+
+        if payload.duplicate_of_id == req.id:
+            raise HTTPException(
+                status_code=400,
+                detail="A request cannot be a duplicate of itself."
+            )
+
+        original = (
+            db.query(CommunityRequest)
+            .filter(
+                CommunityRequest.id == payload.duplicate_of_id
+            )
+            .first()
+        )
+
+        if not original:
+            raise HTTPException(
+                status_code=404,
+                detail="Original request not found."
+            )
+
+        req.status = RequestStatus.FLAGGED_DUPLICATE
+
+    elif action == "MARK_NOT_DUPLICATE":
+        req.status = RequestStatus.PENDING
+
+    # REQUEST_CLARIFICATION deliberately leaves the request flagged.
+    # It cannot proceed through normal allocation or approval.
+
+    verification = RequestVerification(
+        request_id=req.id,
+        verified_by_id=current_user.id,
+        is_duplicate=(action == "CONFIRM_DUPLICATE"),
+        duplicate_of_id=(
+            payload.duplicate_of_id
+            if action == "CONFIRM_DUPLICATE"
+            else previous_review.duplicate_of_id
+        ),
+        similarity_score=previous_review.similarity_score,
+        notes=payload.notes,
+        action_taken=action
+    )
+
+    db.add(verification)
+    db.flush()
+
+    log_audit_event(
+        db=db,
+        actor_id=current_user.id,
+        actor_name=current_user.full_name,
+        actor_role=(
+            current_user.role.value
+            if hasattr(current_user.role, "value")
+            else str(current_user.role)
+        ),
+        action=f"DUPLICATE_REVIEW_{action}",
+        entity_type="COMMUNITY_REQUEST",
+        entity_id=req.tracking_code,
+        previous_state=RequestStatus.FLAGGED_DUPLICATE.value,
+        new_state=req.status.value,
+        reason=payload.notes
+    )
+    if action in {"CONFIRM_DUPLICATE", "MARK_NOT_DUPLICATE"}:
+        latest_clarification = (
+            db.query(RequestClarification)
+            .filter(RequestClarification.request_id == req.id)
+            .order_by(RequestClarification.id.desc())
+            .first()
+        )
+
+        if latest_clarification:
+            latest_clarification.status = "CLOSED"
+            latest_clarification.decision = action
+            latest_clarification.reviewed_by_id = current_user.id
+            latest_clarification.reviewed_at = datetime.now(IST)
+    db.commit()
+    db.refresh(req)
+
+    return req
+
 
 # ============================================================
 # CITIZEN MOBILE APP INGESTION & IDEMPOTENT SYNC
@@ -934,7 +1632,6 @@ def get_citizen_request_by_code(
 
 @router.post(
     "/sms-inbound",
-    response_model=CommunityRequestResponse
 )
 def receive_inbound_sms(
     payload: dict,
@@ -947,7 +1644,118 @@ def receive_inbound_sms(
     body = str(body).strip()
     if not body:
         raise HTTPException(status_code=400, detail="Empty SMS body")
+    # Clarification replies must never enter emergency-request parsing.
+    if body.upper().startswith("RF:CLAR|"):
+        parts = body.split("|", 2)
 
+        if len(parts) != 3:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid clarification reply format."
+            )
+
+        reply_code = parts[1].strip().upper()
+        response_text = parts[2].strip()
+
+        if not reply_code or not response_text:
+            raise HTTPException(
+                status_code=400,
+                detail="Clarification code and response are required."
+            )
+
+        clarification = (
+            db.query(RequestClarification)
+            .filter(RequestClarification.reply_code == reply_code)
+            .first()
+        )
+
+        if not clarification:
+            raise HTTPException(
+                status_code=404,
+                detail="Clarification code not found."
+            )
+
+        req = (
+            db.query(CommunityRequest)
+            .filter(CommunityRequest.id == clarification.request_id)
+            .first()
+        )
+
+        if not req:
+            raise HTTPException(
+                status_code=404,
+                detail="Associated request not found."
+            )
+
+        sender_digits = _normalise_clarification_phone(sender)
+        registered_digits = _normalise_clarification_phone(
+            req.reporter_phone
+        )
+
+        if (
+            not sender_digits
+            or not registered_digits
+            or sender_digits != registered_digits
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Sender does not match the registered request phone."
+            )
+
+        # If already answered, preserve the first response.
+        if clarification.status == "ANSWERED":
+            return _clarification_payload(clarification)
+
+        if clarification.status != "PENDING":
+            raise HTTPException(
+                status_code=409,
+                detail="This clarification is no longer accepting responses."
+            )
+
+        # Conditional update prevents two channels from overwriting each other.
+        updated = (
+            db.query(RequestClarification)
+            .filter(
+                RequestClarification.id == clarification.id,
+                RequestClarification.status == "PENDING",
+            )
+            .update(
+                {
+                    RequestClarification.status: "ANSWERED",
+                    RequestClarification.response: response_text,
+                    RequestClarification.response_channel: "SMS",
+                    RequestClarification.responded_at: datetime.now(IST),
+                    RequestClarification.updated_at: datetime.now(IST),
+                },
+                synchronize_session=False,
+            )
+        )
+
+        if not updated:
+            db.rollback()
+            latest = (
+                db.query(RequestClarification)
+                .filter(RequestClarification.id == clarification.id)
+                .first()
+            )
+
+            if latest and latest.status == "ANSWERED":
+                return _clarification_payload(latest)
+
+            raise HTTPException(
+                status_code=409,
+                detail="Clarification response could not be saved. Please retry."
+            )
+
+        db.commit()
+
+        saved = (
+            db.query(RequestClarification)
+            .filter(RequestClarification.id == clarification.id)
+            .first()
+        )
+
+        return _clarification_payload(saved)
     # Check for structured compact format
     
     if body.startswith("RF:SOS|") or body.startswith("RF:SUP|"):
@@ -1073,6 +1881,11 @@ def approve_evacuation(
         raise HTTPException(
             status_code=404,
             detail="Request not found"
+        )
+    if req.status == RequestStatus.FLAGGED_DUPLICATE:
+        raise HTTPException(
+            status_code=409,
+            detail="This request is under duplicate review and cannot be approved."
         )
 
     if req.request_type != "EVACUATION":

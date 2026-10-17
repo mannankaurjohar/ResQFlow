@@ -54,6 +54,21 @@ const getFacilityRole = (type: string) => {
   }
 };
 
+type AuthorityDuplicateClarification = {
+  id: number;
+  request_id: number;
+  question: string | null;
+  message: string;
+  status: 'PENDING' | 'ANSWERED' | 'CLOSED';
+  response: string | null;
+  response_channel: string | null;
+  sms_status: string;
+  sms_error: string | null;
+  decision: string | null;
+  responded_at: string | null;
+  reviewed_at: string | null;
+};
+
 export const AuthorityCommandPage: React.FC = () => {
 
   const {
@@ -68,6 +83,18 @@ export const AuthorityCommandPage: React.FC = () => {
   } = useApp();
 
   const [requests, setRequests] = useState<CommunityRequest[]>([]);
+  const [duplicateReviewRequest, setDuplicateReviewRequest] =
+  useState<CommunityRequest | null>(null);
+
+const [duplicateOriginalRequest, setDuplicateOriginalRequest] =
+  useState<CommunityRequest | null>(null);
+const [duplicateClarification, setDuplicateClarification] =
+  useState<AuthorityDuplicateClarification | null>(null);
+const [duplicateClarificationLoading, setDuplicateClarificationLoading] =
+  useState(false);
+const [duplicateReviewNotes, setDuplicateReviewNotes] = useState('');
+const [duplicateReviewLoading, setDuplicateReviewLoading] = useState(false);
+const [duplicateReviewSubmitting, setDuplicateReviewSubmitting] = useState(false);
   const [shortages, setShortages] = useState<any[]>([]);
   const [analytics, setAnalytics] =
     useState<AnalyticsData | null>(null);
@@ -95,6 +122,99 @@ const [approvingRequestId, setApprovingRequestId] =
   const [handoverNotes, setHandoverNotes] = useState('');
   const signatureRef = useRef<SignatureCanvas | null>(null);
   const responseOperationsRef = useRef<HTMLDivElement | null>(null);
+const openDuplicateReview = async (request: CommunityRequest) => {
+  const latestVerification = [...(request.verifications || [])]
+    .sort((a, b) => b.id - a.id)[0];
+
+  if (!latestVerification?.duplicate_of_id) {
+    showNotification('The suspected original request could not be identified.');
+    return;
+  }
+
+  setDuplicateReviewRequest(request);
+  setDuplicateOriginalRequest(null);
+  setDuplicateReviewNotes('');
+  setDuplicateClarification(null);
+setDuplicateClarificationLoading(true);
+  setDuplicateReviewLoading(true);
+
+  try {
+    const original = await api.getRequestById(
+      latestVerification.duplicate_of_id
+    );
+    setDuplicateOriginalRequest(original);
+    try {
+  const clarification =
+    await api.getAuthorityDuplicateClarification(request.id);
+
+  setDuplicateClarification(clarification);
+} catch {
+  showNotification('Failed to load clarification details.');
+}
+  } catch (error: any) {
+    showNotification(
+      error?.message || 'Failed to load the suspected original request.'
+    );
+  } finally {
+    setDuplicateReviewLoading(false);
+    setDuplicateClarificationLoading(false);
+  }
+};
+
+const submitDuplicateReview = async (
+  action: 'CONFIRM_DUPLICATE' | 'MARK_NOT_DUPLICATE' | 'REQUEST_CLARIFICATION'
+) => {
+  if (!duplicateReviewRequest || duplicateReviewSubmitting) return;
+
+  if (
+    action === 'CONFIRM_DUPLICATE' &&
+    !duplicateOriginalRequest
+  ) {
+    showNotification('The original request has not loaded.');
+    return;
+  }
+
+  setDuplicateReviewSubmitting(true);
+
+  try {
+if (action === 'REQUEST_CLARIFICATION') {
+  await api.createDuplicateClarification(
+    duplicateReviewRequest.id,
+    duplicateReviewNotes.trim() || undefined
+  );
+} else {
+  await api.reviewDuplicate(
+    duplicateReviewRequest.id,
+    action,
+    duplicateReviewNotes.trim() || undefined,
+    action === 'CONFIRM_DUPLICATE'
+      ? duplicateOriginalRequest!.id
+      : undefined
+  );
+}
+
+    const messages = {
+      CONFIRM_DUPLICATE: 'Duplicate confirmed. Request remains locked.',
+      MARK_NOT_DUPLICATE: 'Request marked genuine. Normal processing restored.',
+      REQUEST_CLARIFICATION: 'Clarification requested. Request remains locked.'
+    };
+
+    showNotification(messages[action]);
+
+    const updatedRequests = await api.getRequests();
+    setRequests(updatedRequests);
+
+    setDuplicateReviewRequest(null);
+    setDuplicateOriginalRequest(null);
+    setDuplicateReviewNotes('');
+  } catch (error: any) {
+    showNotification(
+      error?.message || 'Failed to submit duplicate review.'
+    );
+  } finally {
+    setDuplicateReviewSubmitting(false);
+  }
+};
 
   const loadAll = async () => {
     setLoading(true);
@@ -1610,60 +1730,71 @@ const isStageCompleted =
 
                         <td className="py-3 px-3 text-right">
 
-                          {req.status === 'PENDING' ||
-                          req.status === 'VERIFIED' ? (
-
                           
-<button
-  disabled={approvingRequestId !== null}
-  onClick={async () => {
-    if (req.request_type?.toUpperCase() !== 'EVACUATION') {
-      setActiveMatchModalRequest(req);
-      return;
-    }
+{req.status === 'FLAGGED_DUPLICATE' ? (
+  (() => {
+    const latestVerification = [...(req.verifications || [])]
+      .sort((a, b) => b.id - a.id)[0];
 
-    if (approvingRequestId !== null) return;
-
-    setApprovingRequestId(req.id);
-
-    try {
-      await api.approveEvacuation(req.id);
-
-      showNotification('Evacuation approved successfully.');
-
-      const [requestData, deliveryData] = await Promise.all([
-        api.getRequests(),
-        api.getDeliveries()
-      ]);
-
-      setRequests(requestData);
-      setDeliveries(deliveryData);
-    } catch (error: any) {
-      console.error('Evacuation approval failed:', error);
-      showNotification(
-        error?.message || 'Evacuation approval failed.'
+    if (latestVerification?.action_taken === 'CONFIRM_DUPLICATE') {
+      return (
+        <span className="text-[11px] text-slate">
+          Confirmed duplicate
+        </span>
       );
-    } finally {
-      setApprovingRequestId(null);
     }
-  }}
-  className="bg-terracotta hover:bg-terracotta-hover text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
->
-  {approvingRequestId === req.id
-    ? 'Approving...'
-    : req.request_type?.toUpperCase() === 'EVACUATION'
-      ? 'Approve Evacuation'
-      : 'Match AI'}
-</button>
 
+    return (
+      <button
+        onClick={() => openDuplicateReview(req)}
+        disabled={duplicateReviewLoading}
+        className="bg-terracotta hover:bg-terracotta-hover text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Review Duplicate
+      </button>
+    );
+  })()
+) : req.status === 'PENDING' ||
+  req.status === 'VERIFIED' ? (
+  <button
+    disabled={approvingRequestId !== null}
+    onClick={async () => {
+      if (req.request_type?.toUpperCase() !== 'EVACUATION') {
+        setActiveMatchModalRequest(req);
+        return;
+      }
+      if (approvingRequestId !== null) return;
+      setApprovingRequestId(req.id);
+      try {
+        await api.approveEvacuation(req.id);
+        showNotification('Evacuation approved successfully.');
+        const [requestData, deliveryData] = await Promise.all([
+          api.getRequests(),
+          api.getDeliveries()
+        ]);
+        setRequests(requestData);
+        setDeliveries(deliveryData);
+      } catch (error: any) {
+        console.error('Evacuation approval failed:', error);
+        showNotification(error?.message || 'Evacuation approval failed.');
+      } finally {
+        setApprovingRequestId(null);
+      }
+    }}
+    className="bg-terracotta hover:bg-terracotta-hover text-white px-2.5 py-1 rounded text-[11px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+  >
+    {approvingRequestId === req.id
+      ? 'Approving...'
+      : req.request_type?.toUpperCase() === 'EVACUATION'
+        ? 'Approve Evacuation'
+        : 'Match AI'}
+  </button>
+) : (
+  <span className="text-[11px] text-slate">
+    Locked
+  </span>
+)}
 
-                          ) : (
-
-                            <span className="text-[11px] text-slate">
-                              Locked
-                            </span>
-
-                          )}
 
                         </td>
 
@@ -1678,6 +1809,254 @@ const isStageCompleted =
           </div>
 
         </div>
+
+{/* DUPLICATE REVIEW MODAL */}
+{duplicateReviewRequest && (
+  <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
+    <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto p-5 shadow-xl">
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <h2 className="text-lg font-bold text-navy">
+            Duplicate Request Review
+          </h2>
+          <p className="text-sm text-slate mt-1">
+            Compare both submissions before making a decision.
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            if (!duplicateReviewSubmitting) {
+              setDuplicateReviewRequest(null);
+              setDuplicateOriginalRequest(null);
+            }
+          }}
+          disabled={duplicateReviewSubmitting}
+          className="text-slate hover:text-navy text-sm"
+        >
+          Close
+        </button>
+      </div>
+
+      {duplicateReviewLoading ? (
+        <p className="py-8 text-center text-slate">
+          Loading suspected original request...
+        </p>
+      ) : !duplicateOriginalRequest ? (
+        <div className="py-6 text-center">
+          <p className="text-sm text-slate mb-3">
+            The suspected original could not be loaded. No decision can
+            be submitted until the original request is available.
+          </p>
+          <button
+            onClick={() => openDuplicateReview(duplicateReviewRequest)}
+            className="px-4 py-2 rounded bg-navy text-white text-sm"
+          >
+            Retry loading
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            {[
+              {
+                title: 'Current flagged request',
+                request: duplicateReviewRequest
+              },
+              {
+                title: 'Suspected original request',
+                request: duplicateOriginalRequest
+              }
+            ].map(({ title, request }) => (
+              <div
+                key={title}
+                className="border border-slate/20 rounded-lg p-4"
+              >
+                <h3 className="font-semibold text-navy mb-3">
+                  {title}
+                </h3>
+
+                <div className="space-y-2 text-sm">
+                  <p>
+                    <span className="font-medium">Tracking ID: </span>
+                    {request.tracking_code}
+                  </p>
+                  <p>
+  <span className="font-medium">Citizen name: </span>
+  {request.reporter_name || 'Not provided'}
+</p>
+<p>
+  <span className="font-medium">Phone number: </span>
+  {request.reporter_phone || 'Not provided'}
+</p>
+                  <p>
+                    <span className="font-medium">Type: </span>
+                    {request.request_type || 'Not specified'}
+                  </p>
+                  <p>
+                    <span className="font-medium">Location: </span>
+                    {request.location_name || 'Not specified'}
+                  </p>
+                  <p>
+                    <span className="font-medium">Coordinates: </span>
+                    {request.latitude}, {request.longitude}
+                  </p>
+                  <p>
+                    <span className="font-medium">Urgency: </span>
+                    {request.urgency}
+                  </p>
+                  <p>
+                    <span className="font-medium">Affected people: </span>
+                    {request.affected_people}
+                  </p>
+                  <p>
+                    <span className="font-medium">Affected households: </span>
+                    {request.affected_households}
+                  </p>
+                  <p>
+                    <span className="font-medium">Elderly: </span>
+                    {request.vulnerable_elderly}
+                    {' · '}
+                    <span className="font-medium">Children: </span>
+                    {request.vulnerable_children}
+                  </p>
+                  <p>
+                    <span className="font-medium">Infants: </span>
+                    {request.vulnerable_infants}
+                    {' · '}
+                    <span className="font-medium">Pregnant: </span>
+                    {request.vulnerable_pregnant}
+                  </p>
+                  <p>
+                    <span className="font-medium">Description:</span>
+                  </p>
+                  <p className="whitespace-pre-wrap break-words text-slate">
+                    {request.raw_description || 'No description provided.'}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CITIZEN DUPLICATE CLARIFICATION */}
+          <div className="mb-5 rounded-lg border border-slate/20 bg-white p-4">
+            <h3 className="mb-3 font-semibold text-navy">
+              Citizen Clarification
+            </h3>
+
+            {duplicateClarificationLoading ? (
+              <p className="text-sm text-slate">
+                Loading clarification...
+              </p>
+            ) : !duplicateClarification ? (
+              <p className="text-sm text-slate">
+                No clarification has been requested for this review yet.
+              </p>
+            ) : (
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="font-medium text-navy">Question sent</p>
+                  <p className="mt-1 whitespace-pre-wrap text-slate">
+                    {duplicateClarification.message}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-medium text-navy">Response status</p>
+                  <p className="mt-1 text-slate">
+                    {duplicateClarification.status === 'ANSWERED'
+                      ? 'Citizen has responded'
+                      : duplicateClarification.status === 'CLOSED'
+                        ? 'Clarification closed'
+                        : 'Waiting for citizen response'}
+                  </p>
+                </div>
+
+                {duplicateClarification.response && (
+                  <div className="rounded-md border border-slate/20 p-3">
+                    <p className="font-medium text-navy">
+                      Citizen's response
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap break-words text-slate">
+                      {duplicateClarification.response}
+                    </p>
+                    <p className="mt-2 text-xs text-slate">
+                      Received via:{' '}
+                      {duplicateClarification.response_channel || 'Unknown'}
+                      {duplicateClarification.responded_at &&
+                        ` · ${new Date(
+                          duplicateClarification.responded_at
+                        ).toLocaleString()}`}
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="font-medium text-navy">SMS delivery</p>
+                  <p className="mt-1 text-slate">
+                    {duplicateClarification.sms_status}
+                  </p>
+                  {duplicateClarification.sms_error && (
+                    <p className="mt-1 break-words text-terracotta">
+                      {duplicateClarification.sms_error}
+                    </p>
+                  )}
+                </div>
+
+                {duplicateClarification.decision && (
+                  <p className="text-slate">
+                    Previous decision: {duplicateClarification.decision}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <label className="block text-sm font-medium text-navy mb-2">
+            Review notes / reason
+          </label>
+          <textarea
+            value={duplicateReviewNotes}
+            onChange={(e) => setDuplicateReviewNotes(e.target.value)}
+            placeholder="Explain why you confirmed the duplicate, marked it genuine, or requested clarification..."
+            rows={3}
+            className="w-full border border-slate/30 rounded-lg p-3 text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-terracotta"
+          />
+
+          <div className="flex flex-wrap justify-end gap-2">
+            <button
+              onClick={() => submitDuplicateReview('REQUEST_CLARIFICATION')}
+              disabled={duplicateReviewSubmitting}
+              className="px-3 py-2 rounded border border-slate/30 text-navy text-sm disabled:opacity-50"
+            >
+              Request Clarification
+            </button>
+
+            <button
+              onClick={() => submitDuplicateReview('MARK_NOT_DUPLICATE')}
+              disabled={duplicateReviewSubmitting}
+              className="px-3 py-2 rounded bg-emerald-700 text-white text-sm disabled:opacity-50"
+            >
+              Mark Genuine
+            </button>
+
+            <button
+              onClick={() => submitDuplicateReview('CONFIRM_DUPLICATE')}
+              disabled={
+                duplicateReviewSubmitting || !duplicateOriginalRequest
+              }
+              className="px-3 py-2 rounded bg-terracotta hover:bg-terracotta-hover text-white text-sm disabled:opacity-50"
+            >
+              {duplicateReviewSubmitting
+                ? 'Submitting...'
+                : 'Confirm Duplicate'}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
 
         {/* ============================================================
             COMPLETE DELIVERY MODAL

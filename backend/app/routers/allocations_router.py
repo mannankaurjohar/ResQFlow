@@ -102,7 +102,11 @@ def get_match_recommendation(
             status_code=404,
             detail="Request not found"
         )
-
+    if req.status == RequestStatus.FLAGGED_DUPLICATE:
+        raise HTTPException(
+            status_code=409,
+            detail="This request is under duplicate review and cannot be matched yet."
+        )
     warehouses = (
         db.query(Warehouse)
         .filter(
@@ -171,6 +175,11 @@ async def get_facility_support_recommendation(
         raise HTTPException(
             status_code=404,
             detail="Request not found"
+        )
+    if req.status == RequestStatus.FLAGGED_DUPLICATE:
+        raise HTTPException(
+            status_code=409,
+            detail="This request is under duplicate review and cannot be matched yet."
         )
 
     
@@ -457,6 +466,11 @@ def approve_allocation(
         raise HTTPException(
             status_code=404,
             detail="Request not found"
+        )
+    if req.status == RequestStatus.FLAGGED_DUPLICATE:
+        raise HTTPException(
+            status_code=409,
+            detail="This request is under duplicate review and cannot be allocated."
         )
 
     # ========================================================

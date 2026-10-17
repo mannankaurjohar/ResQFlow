@@ -402,6 +402,84 @@ class RequestVerification(Base):
 
     request = relationship("CommunityRequest", foreign_keys=[request_id], back_populates="verifications")
 
+class RequestClarification(Base):
+    __tablename__ = "request_clarifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    request_id = Column(
+        Integer,
+        ForeignKey("community_requests.id"),
+        nullable=False,
+        index=True
+    )
+
+    created_by_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    reviewed_by_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=True
+    )
+
+    # Optional authority question. The default message is stored
+    # separately so a question is never required.
+    question = Column(Text, nullable=True)
+    message = Column(Text, nullable=False)
+
+    # Unique code used to associate incoming SMS replies with
+    # the correct clarification.
+    reply_code = Column(
+        String(20),
+        unique=True,
+        index=True,
+        nullable=False
+    )
+
+    # PENDING, ANSWERED, REOPENED, CLOSED
+    status = Column(
+        String(20),
+        default="PENDING",
+        nullable=False,
+        index=True
+    )
+
+    response = Column(Text, nullable=True)
+
+    # WEBSITE or SMS
+    response_channel = Column(String(20), nullable=True)
+
+    # NOT_CONFIGURED, PENDING, SENT, FAILED
+    sms_status = Column(
+        String(20),
+        default="NOT_CONFIGURED",
+        nullable=False
+    )
+    sms_error = Column(Text, nullable=True)
+
+    # Final decision by the authority
+    decision = Column(String(30), nullable=True)
+
+    created_at = Column(
+        DateTime,
+        default=lambda: datetime.now(IST),
+        nullable=False
+    )
+
+    responded_at = Column(DateTime, nullable=True)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(IST),
+        onupdate=lambda: datetime.now(IST),
+        nullable=False
+    )
+
 class Warehouse(Base):
     __tablename__ = "warehouses"
     id = Column(Integer, primary_key=True, index=True)

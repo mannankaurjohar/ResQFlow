@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Search,
   Package,
@@ -21,10 +21,37 @@ type RequestWithExtras = CommunityRequest & {
   updated_at?: string;
   request_type?: string;
 };
-
+type DuplicateClarification = {
+  id: number;
+  request_id: number;
+  question: string | null;
+  message: string;
+  status: 'PENDING' | 'ANSWERED' | 'CLOSED';
+  response: string | null;
+  response_channel: string | null;
+  sms_status: string;
+  decision: string | null;
+  responded_at: string | null;
+};
 const MyRequestsPage: React.FC = () => {
-  const { setActiveTab } = useApp();
+const { setActiveTab, currentUser } = useApp();
+const [targetRequestId, setTargetRequestId] = useState<number | null>(null);
+const requestCardRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
+useEffect(() => {
+  const storedRequestId = sessionStorage.getItem(
+    'resqflow:open-clarification-request'
+  );
+
+  if (storedRequestId) {
+    const parsedId = Number(storedRequestId);
+
+    if (Number.isInteger(parsedId) && parsedId > 0) {
+      setTargetRequestId(parsedId);
+      setFilter('ALL');
+    }
+  }
+}, []);
   const [phone, setPhone] = useState('');
   const [requests, setRequests] = useState<RequestWithExtras[]>([]);
   const [filter, setFilter] = useState<RequestFilter>('ALL');
@@ -32,9 +59,20 @@ const MyRequestsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
-
-  const loadRequests = async () => {
-    const cleanedPhone = phone.trim();
+const [clarifications, setClarifications] = useState<
+  Record<number, DuplicateClarification | null>
+>({});
+const [clarificationResponses, setClarificationResponses] = useState<
+  Record<number, string>
+>({});
+const [clarificationLoading, setClarificationLoading] = useState<
+  Record<number, boolean>
+>({});
+const [clarificationErrors, setClarificationErrors] = useState<
+  Record<number, string>
+>({});
+  const loadRequests = async (phoneOverride?: string) => {
+  const cleanedPhone = (phoneOverride ?? phone).trim();
 
     if (!cleanedPhone) {
       setError('Please enter the phone number used when submitting your request.');
@@ -42,13 +80,19 @@ const MyRequestsPage: React.FC = () => {
     }
 
     setLoading(true);
-    setError('');
+    setError(''); 
 
     try {
       const data = await api.getMyRequests(cleanedPhone);
+const loadedRequests = (data || []) as RequestWithExtras[];
 
-      setRequests((data || []) as RequestWithExtras[]);
-      setSearched(true);
+setRequests(loadedRequests);
+setClarifications({});
+setClarificationResponses({});
+setClarificationErrors({});
+setSearched(true);
+
+await loadClarifications(loadedRequests, cleanedPhone);
     } catch (err) {
       console.error('Failed to load requests:', err);
 
@@ -64,7 +108,113 @@ const MyRequestsPage: React.FC = () => {
       setLoading(false);
     }
   };
+  useEffect(() => {
+  if (targetRequestId === null) return;
 
+  const accountPhone = currentUser?.phone?.trim();
+
+  if (accountPhone) {
+    setPhone(accountPhone);
+    void loadRequests(accountPhone);
+  }
+}, [targetRequestId, currentUser?.phone]);
+useEffect(() => {
+  if (targetRequestId === null || loading || !searched) return;
+
+  const card = requestCardRefs.current[targetRequestId];
+
+  if (card) {
+    card.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  }
+}, [targetRequestId, loading, searched, requests, filter]);
+const loadClarifications = async (
+  items: RequestWithExtras[],
+  cleanedPhone: string
+) => {
+  const flagged = items.filter(
+    request =>
+      String(request.status).toUpperCase() === 'FLAGGED_DUPLICATE'
+  );
+
+  const results = await Promise.all(
+    flagged.map(async request => {
+      try {
+        const clarification = await api.getDuplicateClarification(
+          request.id,
+          cleanedPhone
+        );
+
+        return [request.id, clarification] as const;
+      } catch (err) {
+        console.error(
+          `Failed to load clarification for request ${request.id}:`,
+          err
+        );
+        return [request.id, null] as const;
+      }
+    })
+  );
+
+  setClarifications(previous => ({
+    ...previous,
+    ...Object.fromEntries(results)
+  }));
+};
+
+const submitClarificationResponse = async (requestId: number) => {
+  const response = (clarificationResponses[requestId] || '').trim();
+
+  if (!response) {
+    setClarificationErrors(previous => ({
+      ...previous,
+      [requestId]: 'Please enter your response.'
+    }));
+    return;
+  }
+
+  setClarificationLoading(previous => ({
+    ...previous,
+    [requestId]: true
+  }));
+  setClarificationErrors(previous => ({
+    ...previous,
+    [requestId]: ''
+  }));
+
+  try {
+    const saved = await api.respondToDuplicateClarification(
+      requestId,
+      phone.trim(),
+      response
+    );
+
+    setClarifications(previous => ({
+      ...previous,
+      [requestId]: saved
+    }));
+
+    setClarificationResponses(previous => ({
+      ...previous,
+      [requestId]: ''
+    }));
+  } catch (err) {
+    setClarificationErrors(previous => ({
+      ...previous,
+      [requestId]:
+        err instanceof Error
+          ? err.message
+          : 'Unable to submit your response.'
+    }));
+  } finally {
+    setClarificationLoading(previous => ({
+      ...previous,
+      [requestId]: false
+    }));
+  }
+};
   const filteredRequests = useMemo(() => {
     if (filter === 'ALL') {
       return requests;
@@ -239,7 +389,7 @@ const MyRequestsPage: React.FC = () => {
                 onChange={e => setPhone(e.target.value)}
                 onKeyDown={e => {
                   if (e.key === 'Enter') {
-                    loadRequests();
+                    void loadRequests();
                   }
                 }}
                 placeholder="Enter the phone number used for your request"
@@ -265,7 +415,7 @@ const MyRequestsPage: React.FC = () => {
 
             <button
               type="button"
-              onClick={loadRequests}
+              onClick={() => void loadRequests()}
               disabled={loading}
               className="
                 px-5
@@ -393,6 +543,10 @@ const MyRequestsPage: React.FC = () => {
           return (
             <div
               key={request.id}
+              id={`request-${request.id}`}
+    ref={element => {
+      requestCardRefs.current[request.id] = element;
+    }}
               className="
                 bg-ivory
                 border
@@ -559,6 +713,114 @@ const MyRequestsPage: React.FC = () => {
                       {request.raw_description}
                     </p>
 
+                  </div>
+                )}
+
+                {/* DUPLICATE CLARIFICATION */}
+                {String(request.status).toUpperCase() ===
+                  'FLAGGED_DUPLICATE' && (
+                  <div className="mt-5 p-4 rounded-xl border border-amber-200 bg-amber-50/70">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShieldAlert className="w-5 h-5 text-amber-700" />
+                      <h3 className="font-bold text-navy text-sm">
+                        Duplicate Request Review
+                      </h3>
+                    </div>
+
+                    {!clarifications[request.id] ? (
+                      <p className="text-sm text-slate-600">
+                        {clarificationErrors[request.id] ||
+                          'No clarification question is currently available. Refresh your requests to check again.'}
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                          {clarifications[request.id]?.message}
+                        </p>
+
+                        {clarifications[request.id]?.status ===
+                        'PENDING' ? (
+                          <div className="mt-4">
+                            <label className="block text-sm font-semibold text-navy mb-2">
+                              Your response
+                            </label>
+
+                            <textarea
+                              value={
+                                clarificationResponses[request.id] || ''
+                              }
+                              onChange={e =>
+                                setClarificationResponses(previous => ({
+                                  ...previous,
+                                  [request.id]: e.target.value
+                                }))
+                              }
+                              maxLength={1000}
+                              rows={3}
+                              placeholder="Explain why this is a separate, genuine request..."
+                              className="w-full rounded-lg border border-slate/30 bg-white p-3 text-sm text-slate-dark outline-none focus:border-navy focus:ring-2 focus:ring-navy/10"
+                            />
+
+                            {clarificationErrors[request.id] && (
+                              <p className="mt-2 text-sm text-red-600">
+                                {clarificationErrors[request.id]}
+                              </p>
+                            )}
+
+                            <button
+                              type="button"
+                              disabled={Boolean(
+                                clarificationLoading[request.id]
+                              )}
+                              onClick={() =>
+                                submitClarificationResponse(request.id)
+                              }
+                              className="mt-3 px-4 py-2.5 rounded-lg bg-navy text-white text-sm font-semibold disabled:opacity-60"
+                            >
+                              {clarificationLoading[request.id]
+                                ? 'Submitting...'
+                                : 'Submit Response'}
+                            </button>
+
+                            <p className="mt-2 text-xs text-slate-500">
+                              Your response will be sent to the authority
+                              for review. It will not automatically approve
+                              or reject your request.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="mt-4 rounded-lg bg-white border border-slate/20 p-3">
+                            <p className="text-sm font-semibold text-emerald-700">
+                              {clarifications[request.id]?.status ===
+                              'ANSWERED'
+                                ? 'Response received'
+                                : 'Clarification closed'}
+                            </p>
+
+                            {clarifications[request.id]?.response && (
+                              <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">
+                                {clarifications[request.id]?.response}
+                              </p>
+                            )}
+
+                            {clarifications[request.id]?.response_channel && (
+                              <p className="mt-2 text-xs text-slate-500">
+                                Received via{' '}
+                                {clarifications[request.id]?.response_channel}
+                              </p>
+                            )}
+
+                            {clarifications[request.id]?.decision && (
+                              <p className="mt-2 text-xs text-slate-600">
+                                Authority decision:{' '}
+                                {clarifications[request.id]?.decision
+                                  ?.replace(/_/g, ' ')}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 

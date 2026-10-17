@@ -5,6 +5,8 @@ import {
   Clock3,
   MapPin,
   Navigation,
+  Package,
+  Phone,
   ShieldCheck,
   Users,
   X,
@@ -53,8 +55,21 @@ type ResponseTask = {
     medical_emergency?: boolean | null;
     immediate_danger?: string | null;
     danger_details_json?: string | null;
+    situation_flags_json?: string | null;
+    location_type?: string | null;
+    rescuer_access?: string | null;
+    access_problem_json?: string | null;
+    accessibility_json?: string | null;
     photo_url?: string | null;
     created_at?: string | null;
+    items?: Array<{
+      id: number;
+      category: string;
+      item_name: string;
+      requested_quantity: number;
+      unit: string;
+      fulfilled_quantity?: number;
+    }>;
   };
   response_unit: {
     id: number;
@@ -141,7 +156,15 @@ function formatDate(value?: string | null) {
     timeStyle: 'short',
   });
 }
-
+function parseJsonArray(jsonStr?: string | null): string[] {
+  if (!jsonStr) return [];
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 export default function ResponseUnitTasksPage() {
   const [tasks, setTasks] = useState<ResponseTask[]>([]);
   const [loading, setLoading] = useState(true);
@@ -501,6 +524,29 @@ export default function ResponseUnitTasksPage() {
                         </div>
                       </div>
 
+                      {/* Reporter Contact Info */}
+                      {(request.reporter_name || request.reporter_phone) && (
+                        <div className="mt-4 flex flex-wrap items-center gap-4 bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs">
+                          {request.reporter_name && (
+                            <div>
+                              <span className="text-slate-500 font-semibold uppercase tracking-wider">Reported By: </span>
+                              <span className="font-bold text-navy">{request.reporter_name}</span>
+                            </div>
+                          )}
+                          {request.reporter_phone && (
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="w-3.5 h-3.5 text-terracotta" />
+                              <a
+                                href={`tel:${request.reporter_phone}`}
+                                className="font-bold text-terracotta hover:underline"
+                              >
+                                {request.reporter_phone}
+                              </a>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Description */}
                       <div className="mt-5">
                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
@@ -545,41 +591,43 @@ export default function ResponseUnitTasksPage() {
                     </div>
                   </div>
 
-                  {/* Risk information */}
-                  <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="border border-slate-200 rounded-lg px-4 py-3">
-                      <p className="text-xs text-slate-500">
-                        Priority
-                      </p>
-                      <p className="font-semibold text-navy mt-1">
-                        {request.priority_classification ||
-                          '—'}
-                        {request.priority_score != null &&
-                          ` · ${request.priority_score}`}
-                      </p>
-                    </div>
+                  {/* Supplies Needed / Requested Items */}
+                  {request.items && request.items.length > 0 && (
+                    <div className="mt-5 border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-terracotta" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-navy">
+                            Supplies Needed ({request.items.length})
+                          </h4>
+                        </div>
+                        <span className="text-[11px] font-semibold text-slate-500">
+                          {request.request_type === 'EVACUATION' ? 'Relief & Rescue Service' : 'Supply Request'}
+                        </span>
+                      </div>
 
-                    <div className="border border-slate-200 rounded-lg px-4 py-3">
-                      <p className="text-xs text-slate-500">
-                        Request Type
-                      </p>
-                      <p className="font-semibold text-navy mt-1">
-                        {request.request_type ||
-                          '—'}
-                      </p>
+                      <div className="divide-y divide-slate-100">
+                        {request.items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="px-4 py-2.5 flex items-center justify-between text-sm"
+                          >
+                            <div>
+                              <p className="font-semibold text-navy">
+                                {item.item_name}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Category: {item.category}
+                              </p>
+                            </div>
+                            <span className="px-3 py-1 rounded-full bg-terracotta/10 text-terracotta font-bold text-xs border border-terracotta/20">
+                              {item.requested_quantity} {item.unit}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-
-                    <div className="border border-slate-200 rounded-lg px-4 py-3">
-                      <p className="text-xs text-slate-500">
-                        Medical Emergency
-                      </p>
-                      <p className="font-semibold text-navy mt-1">
-                        {request.medical_emergency
-                          ? 'Yes'
-                          : 'No'}
-                      </p>
-                    </div>
-                  </div>
+                  )}
 
                   {/* Vulnerable people */}
                   {(request.vulnerable_elderly > 0 ||
@@ -646,7 +694,36 @@ export default function ResponseUnitTasksPage() {
                       </div>
                     </div>
                   )}
+                  {/* Situation & Access Details */}
+                  {(request.immediate_danger ||
+                    parseJsonArray(request.situation_flags_json).length > 0 ||
+                    parseJsonArray(request.danger_details_json).length > 0) && (
+                    <div className="mt-4 bg-red-50/60 border border-red-200 rounded-xl p-4 text-xs">
+                      <div className="flex items-center gap-2 text-red-800 font-semibold mb-2">
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                        <span>Danger & Hazard Details</span>
+                      </div>
 
+                      {request.immediate_danger && (
+                        <p className="text-red-900 mb-1.5">
+                          <strong>Immediate Danger:</strong> {request.immediate_danger}
+                        </p>
+                      )}
+
+                      {parseJsonArray(request.situation_flags_json).length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-2">
+                          {parseJsonArray(request.situation_flags_json).map((flag, idx) => (
+                            <span
+                              key={idx}
+                              className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-medium text-[11px] border border-red-200"
+                            >
+                              {flag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* Unit */}
                   <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
                     <span className="flex items-center gap-1.5">

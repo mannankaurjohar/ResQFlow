@@ -104,7 +104,72 @@ const timelineIcon = (status: string) => {
       return <Clock3 className="w-4 h-4" />;
   }
 };
+const getTimelineDescription = (
+  status: string,
+  state: 'COMPLETED' | 'CURRENT' | 'PENDING'
+): string => {
+  const descriptions: Record<
+    string,
+    { completed: string; current: string; pending: string }
+  > = {
+    SUBMITTED: {
+      completed: 'Request has been submitted.',
+      current: 'Request has been submitted and is in queue.',
+      pending: 'Awaiting request submission.',
+    },
+    VERIFIED: {
+      completed: 'Request has been verified.',
+      current: 'Request is currently being verified.',
+      pending: 'Awaiting verification.',
+    },
+    APPROVED: {
+      completed: 'Request has been approved.',
+      current: 'Request is approved and awaiting response unit assignment.',
+      pending: 'Awaiting approval and allocation.',
+    },
+    ASSIGNED: {
+      completed: 'Response unit has been assigned.',
+      current: 'Response unit has been assigned to this request.',
+      pending: 'Awaiting response unit assignment.',
+    },
+    ACCEPTED: {
+      completed: 'Response unit has accepted the task.',
+      current: 'Response unit is preparing for deployment.',
+      pending: 'Awaiting task acceptance by response unit.',
+    },
+    IN_TRANSIT: {
+      completed: 'Response unit has completed transit.',
+      current: 'Response unit is currently en route to the location.',
+      pending: 'Awaiting response unit departure.',
+    },
+    ON_SCENE: {
+      completed: 'Response unit has arrived on scene.',
+      current: 'Response unit is on scene at the location.',
+      pending: 'Awaiting arrival on scene.',
+    },
+    RESPONDING: {
+      completed: 'Field response operations have been conducted.',
+      current: 'Response operations are actively underway on scene.',
+      pending: 'Awaiting response operations to begin.',
+    },
+    COMPLETED: {
+      completed: 'Emergency response has been completed.',
+      current: 'Emergency response is concluding.',
+      pending: 'Awaiting task completion.',
+    },
+  };
 
+  const item = descriptions[status];
+  if (!item) {
+    if (state === 'COMPLETED') return 'Stage has been completed.';
+    if (state === 'CURRENT') return 'Currently in progress.';
+    return 'Pending.';
+  }
+
+  if (state === 'COMPLETED') return item.completed;
+  if (state === 'CURRENT') return item.current;
+  return item.pending;
+};
 export const TraceReliefPage: React.FC = () => {
   const { traceIdInput, setTraceIdInput } = useApp();
 
@@ -475,11 +540,7 @@ export const TraceReliefPage: React.FC = () => {
                     </div>
 
                     <div className="text-xs text-slate mt-1">
-                      {completed
-                        ? `${step.label} has been reached.`
-                        : current
-                          ? `Current response stage: ${step.label}.`
-                          : `Awaiting ${step.label.toLowerCase()}.`}
+                      {getTimelineDescription(step.status, step.state)}
                     </div>
                   </div>
                 );

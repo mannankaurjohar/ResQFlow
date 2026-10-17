@@ -1,11 +1,14 @@
+from dotenv import load_dotenv
 import os
 from pathlib import Path
-
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 class Settings:
     PROJECT_NAME: str = "ResQFlow"
     API_V1_STR: str = "/api"
-
+    RESQFLOW_SMS_DEVICE_TOKEN: str = os.getenv(
+    "RESQFLOW_SMS_DEVICE_TOKEN", ""
+    )
     SECRET_KEY: str = os.getenv(
         "SECRET_KEY",
         "resqflow-super-secret-key-emergency-2026-disaster-relief"

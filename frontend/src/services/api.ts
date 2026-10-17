@@ -505,6 +505,113 @@ return data;
 
   return res.json();
 },
+async getMyDuplicateClarifications(): Promise<Array<{
+  id: number;
+  request_id: number;
+  tracking_code: string;
+  message: string;
+  created_at: string | null;
+}>> {
+  const res = await authenticatedFetch(
+    API_BASE + '/requests/my-duplicate-clarifications'
+  );
+
+  if (!res.ok) {
+    throw new Error('Unable to load clarification notifications.');
+  }
+
+  return res.json();
+},
+  async getDuplicateClarification(
+    requestId: number,
+    phone: string
+  ): Promise<any> {
+    const res = await fetch(
+      `${API_BASE}/requests/${requestId}/duplicate-clarification?phone=${encodeURIComponent(phone)}`
+    );
+
+    if (!res.ok) {
+      let message = 'Failed to load clarification';
+
+      try {
+        const data = await res.json();
+        if (data?.detail) {
+          message = typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+        }
+      } catch {
+        // Keep default message
+      }
+
+      if (res.status === 404) {
+        return null;
+      }
+
+      throw new Error(message);
+    }
+
+    return res.json();
+  },
+  
+  async getAuthorityDuplicateClarification(requestId: number) {
+    const response = await authenticatedFetch(
+      `${API_BASE}/requests/${requestId}/duplicate-clarification/authority`
+    );
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(
+        error.detail || 'Failed to load clarification details.'
+      );
+    }
+
+    return response.json();
+  },
+
+  async respondToDuplicateClarification(
+    requestId: number,
+    phone: string,
+    response: string
+  ): Promise<any> {
+    const res = await fetch(
+      `${API_BASE}/requests/${requestId}/duplicate-clarification/respond`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          phone,
+          response
+        })
+      }
+    );
+
+    if (!res.ok) {
+      let message = 'Failed to submit clarification response';
+
+      try {
+        const data = await res.json();
+        if (data?.detail) {
+          message = typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+        }
+      } catch {
+        // Keep default message
+      }
+
+      throw new Error(message);
+    }
+
+    return res.json();
+  },
+
 async assignResponseTask(
   unitId: number,
   requestId: number
@@ -701,6 +808,75 @@ async communitySignup(data: {
 
     return res.json();
   },
+  
+  async reviewDuplicate(
+    requestId: number,
+    action: 'CONFIRM_DUPLICATE' | 'MARK_NOT_DUPLICATE' | 'REQUEST_CLARIFICATION',
+    notes?: string,
+    duplicateOfId?: number
+  ): Promise<CommunityRequest> {
+    const res = await authenticatedFetch(
+      API_BASE + '/requests/' + requestId + '/duplicate-review',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action,
+          notes,
+          duplicate_of_id: duplicateOfId
+        })
+      }
+    );
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
+      throw new Error(
+        errorData?.detail || 'Failed to submit duplicate review.'
+      );
+    }
+
+    return res.json();
+  },
+
+  async createDuplicateClarification(
+    requestId: number,
+    question?: string
+  ): Promise<any> {
+    const res = await authenticatedFetch(
+      `${API_BASE}/requests/${requestId}/duplicate-clarification`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          question: question?.trim() || null
+        })
+      }
+    );
+
+    if (!res.ok) {
+      let message = 'Failed to create clarification';
+
+      try {
+        const data = await res.json();
+        if (data?.detail) {
+          message = typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+        }
+      } catch {
+        // Keep default message
+      }
+
+      throw new Error(message);
+    }
+
+    return res.json();
+  },
+
 async approveEvacuation(
   requestId: number
 ): Promise<CommunityRequest> {

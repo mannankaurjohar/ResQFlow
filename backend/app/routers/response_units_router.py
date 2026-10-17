@@ -385,14 +385,6 @@ def track_response_request(
         ("COMPLETED", "Completed"),
     ]
 
-    request_rank = {
-        "SUBMITTED": 0,
-        "PENDING": 0,
-        "VERIFIED": 1,
-        "APPROVED": 2,
-        "ALLOCATED": 2,
-    }
-
     assignment_rank = {
         "ASSIGNED": 3,
         "ACCEPTED": 4,
@@ -402,28 +394,47 @@ def track_response_request(
         "COMPLETED": 8,
     }
 
+    has_approved_allocation = bool(
+        request.allocations
+        and any(
+            str(a.status).upper() in ["APPROVED", "ALLOCATED"]
+            for a in request.allocations
+        )
+    )
+    first_allocation = request.allocations[0] if request.allocations else None
+    first_verification = request.verifications[0] if request.verifications else None
+
     if assignment_status in assignment_rank:
         current_rank = assignment_rank[assignment_status]
         current_status = assignment_status
+    elif (
+        request_status in ["DELIVERED", "COMPLETED"]
+        or (assignment is not None and assignment.completed_at is not None)
+    ):
+        current_rank = len(lifecycle) - 1
+        current_status = "COMPLETED"
+    elif has_approved_allocation or request_status in ["APPROVED", "ALLOCATED", "PARTIALLY_FULFILLED"]:
+        current_rank = 2  # Stage: Approved
+        current_status = "APPROVED"
+    elif request_status == "VERIFIED" or first_verification is not None:
+        current_rank = 1  # Stage: Verified
+        current_status = "VERIFIED"
     else:
-        if (
-            request_status == "DELIVERED"
-            or (
-                assignment is not None
-                and assignment.completed_at is not None
-            )
-        ):
-            current_rank = len(lifecycle) - 1
-            current_status = "COMPLETED"
-        else:
-            current_rank = request_rank.get(request_status, 0)
-
-        current_status = request_status or "SUBMITTED"
+        current_rank = 0  # Stage: Submitted
+        current_status = "SUBMITTED"
 
     timestamps = {
         "SUBMITTED": request.created_at,
-        "VERIFIED": None,
-        "APPROVED": None,
+        "VERIFIED": (
+            first_verification.created_at
+            if first_verification
+            else (request.created_at if current_rank >= 1 else None)
+        ),
+        "APPROVED": (
+            (first_allocation.approved_at or first_allocation.created_at)
+            if first_allocation
+            else (request.created_at if current_rank >= 2 else None)
+        ),
         "ASSIGNED": assignment.assigned_at if assignment else None,
         "ACCEPTED": assignment.accepted_at if assignment else None,
         "IN_TRANSIT": None,
@@ -611,8 +622,24 @@ def get_my_tasks(
                 "medical_emergency": request.medical_emergency,
                 "immediate_danger": request.immediate_danger,
                 "danger_details_json": request.danger_details_json,
+                "situation_flags_json": request.situation_flags_json,
+                "location_type": request.location_type,
+                "rescuer_access": request.rescuer_access,
+                "access_problem_json": request.access_problem_json,
+                "accessibility_json": request.accessibility_json,
                 "photo_url": request.photo_url,
                 "created_at": request.created_at,
+                "items": [
+                    {
+                        "id": item.id,
+                        "category": item.category,
+                        "item_name": item.item_name,
+                        "requested_quantity": item.requested_quantity,
+                        "unit": item.unit,
+                        "fulfilled_quantity": item.fulfilled_quantity,
+                    }
+                    for item in (request.items or [])
+                ],
             },
             "response_unit": {
                 "id": unit.id,

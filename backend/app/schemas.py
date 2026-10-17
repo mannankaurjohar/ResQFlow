@@ -187,6 +187,17 @@ class VerifyRequestInput(BaseModel):
     notes: Optional[str] = None
     duplicate_of_id: Optional[int] = None
 
+class CreateDuplicateClarificationInput(BaseModel):
+    question: Optional[str] = Field(
+        default=None,
+        max_length=500
+    )
+
+
+class CitizenDuplicateClarificationResponseInput(BaseModel):
+    phone: str = Field(..., min_length=5, max_length=50)
+    response: str = Field(..., min_length=1, max_length=1000)
+
 class CommunityRequestResponse(BaseModel):
     id: int
     tracking_code: str
