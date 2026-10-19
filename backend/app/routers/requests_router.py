@@ -1072,7 +1072,8 @@ def get_next_sms_for_device(
 
     sms_message = (
         f"ResQFlow request {req.tracking_code}: {clarification.message}\n"
-        f"Reply by SMS: RF:CLAR|{clarification.reply_code}| followed by your answer."
+        "Reply to this SMS in your own words to answer the question. "
+        "Please reply from the phone number registered with your request."
     )
 
     return {
