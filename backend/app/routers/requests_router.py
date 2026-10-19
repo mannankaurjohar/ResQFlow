@@ -177,7 +177,7 @@ def list_requests(
                 RequestStatus.FLAGGED_DUPLICATE,
             ])
         )
-        
+
 
     return (
         query
@@ -902,10 +902,13 @@ def create_duplicate_clarification(
     message = question or DEFAULT_DUPLICATE_QUESTION
     reply_code = secrets.token_hex(4).upper()
 
+
     sms_message = (
         f"ResQFlow request {req.tracking_code}: {message}\n"
-        f"Reply by SMS: RF:CLAR|{reply_code}| followed by your answer."
+        "Reply to this SMS in your own words to answer the question. "
+        "Please reply from the phone number registered with your request."
     )
+
 
     clarification = RequestClarification(
         request_id=id,
@@ -1704,6 +1707,42 @@ def get_citizen_request_by_code(
         )
     return req
 
+@router.post("/sms-clarification-status")
+def check_sms_clarification_status(
+    payload: dict,
+    db: Session = Depends(get_db),
+):
+    phone = str(payload.get("phone") or "").strip()
+    sender_digits = _normalise_clarification_phone(phone)
+
+    if not sender_digits:
+        return {"eligible": False, "reason": "invalid_phone"}
+
+    pending_clarifications = (
+        db.query(RequestClarification, CommunityRequest)
+        .join(
+            CommunityRequest,
+            CommunityRequest.id == RequestClarification.request_id,
+        )
+        .filter(RequestClarification.status == "PENDING")
+        .all()
+    )
+
+    matches = [
+        clarification
+        for clarification, req in pending_clarifications
+        if _normalise_clarification_phone(req.reporter_phone)
+        == sender_digits
+    ]
+
+    if len(matches) == 1:
+        return {"eligible": True}
+
+    if len(matches) > 1:
+        return {"eligible": False, "reason": "multiple_pending"}
+
+    return {"eligible": False, "reason": "no_pending"}
+
 
 # ============================================================
 # INBOUND SMS GATEWAY WEBHOOK & PARSER
@@ -1835,8 +1874,86 @@ def receive_inbound_sms(
         )
 
         return _clarification_payload(saved)
+
+    # Match ordinary SMS replies to a pending clarification by registered phone.
+    # Keep structured SOS and supply messages on their existing path.
+    if not body.startswith("RF:SOS|") and not body.startswith("RF:SUP|"):
+        sender_digits = _normalise_clarification_phone(sender)
+
+        if sender_digits:
+            pending_clarifications = (
+                db.query(RequestClarification, CommunityRequest)
+                .join(
+                    CommunityRequest,
+                    CommunityRequest.id == RequestClarification.request_id,
+                )
+                .filter(RequestClarification.status == "PENDING")
+                .order_by(RequestClarification.id.desc())
+                .all()
+            )
+
+            matching_clarifications = [
+                (clarification, req)
+                for clarification, req in pending_clarifications
+                if _normalise_clarification_phone(req.reporter_phone)
+                == sender_digits
+            ]
+
+            if len(matching_clarifications) == 1:
+                clarification, req = matching_clarifications[0]
+
+                updated = (
+                    db.query(RequestClarification)
+                    .filter(
+                        RequestClarification.id == clarification.id,
+                        RequestClarification.status == "PENDING",
+                    )
+                    .update(
+                        {
+                            RequestClarification.status: "ANSWERED",
+                            RequestClarification.response: body,
+                            RequestClarification.response_channel: "SMS",
+                            RequestClarification.responded_at: datetime.now(IST),
+                            RequestClarification.updated_at: datetime.now(IST),
+                        },
+                        synchronize_session=False,
+                    )
+                )
+
+                if not updated:
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Clarification response could not be saved. Please retry.",
+                    )
+
+                db.commit()
+                saved = (
+                    db.query(RequestClarification)
+                    .filter(RequestClarification.id == clarification.id)
+                    .first()
+                )
+                return _clarification_payload(saved)
+
+            if len(matching_clarifications) > 1:
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        "Multiple pending clarifications match this phone number. "
+                        "Please reply using the RF:CLAR|CODE|answer format."
+                    ),
+                )
+
+    # Never parse an ordinary Android SMS as a new emergency request
+    # if it was forwarded specifically as a clarification reply.
+    if payload.get("source") == "android_clarification_reply":
+        return {
+            "status": "IGNORED",
+            "reason": "no_pending_clarification",
+        }
+
     # Check for structured compact format
-    
+
     if body.startswith("RF:SOS|") or body.startswith("RF:SUP|"):
         parts = body.split("|")
         req_type = "EVACUATION" if parts[0] == "RF:SOS" else "SUPPLIES"
