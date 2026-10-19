@@ -3,9 +3,14 @@ from fastapi import APIRouter, Depends, HTTPException,Header
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import hmac
+import os
+import logging
+import firebase_admin
+from firebase_admin import credentials, messaging
 from app.config import settings
 from datetime import datetime
 import secrets
+from pydantic import BaseModel
 import re
 from app.database import get_db
 from app.models import (
@@ -16,6 +21,7 @@ from app.models import (
     User,
     RequestStatus,
     RequestClarification,
+    SmsDeviceRegistration,
     IST,
     SeverityLevel,
     ResponseAssignment,
@@ -57,7 +63,8 @@ router = APIRouter(
     prefix="/requests",
     tags=["Community Requests"]
 )
-
+class SmsDeviceTokenInput(BaseModel):
+    token: str
 def require_sms_device(
     token: Optional[str] = Header(
         default=None,
@@ -77,6 +84,34 @@ def require_sms_device(
             status_code=401,
             detail="Invalid SMS device credentials.",
         )
+def send_sms_wakeup_notification(fcm_token: str) -> bool:
+    service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
+
+    if not service_account_json:
+        logging.warning("FCM is not configured: missing service account.")
+        return False
+
+    try:
+        try:
+            app = firebase_admin.get_app()
+        except ValueError:
+            service_account = json.loads(service_account_json)
+            app = firebase_admin.initialize_app(
+                credentials.Certificate(service_account)
+            )
+
+        message = messaging.Message(
+            data={"type": "SEND_PENDING_SMS"},
+            token=fcm_token,
+            android=messaging.AndroidConfig(priority="high"),
+        )
+
+        messaging.send(message, app=app)
+        return True
+
+    except Exception:
+        logging.exception("Failed to send SMS wake-up notification.")
+        return False
 # ============================================================
 # NLP PARSING
 # ============================================================
@@ -929,15 +964,59 @@ def create_duplicate_clarification(
     db.commit()
     db.refresh(clarification)
 
+    push_sent = False
+
+    if clarification.sms_status == "PENDING":
+        registration = (
+            db.query(SmsDeviceRegistration)
+            .filter(SmsDeviceRegistration.id == 1)
+            .first()
+        )
+
+        if registration:
+            push_sent = send_sms_wakeup_notification(
+                registration.fcm_token
+            )
+
     result = _clarification_payload(clarification)
     result["sms_message"] = sms_message
+    result["sms_wakeup_sent"] = push_sent
     result["sms_delivery_note"] = (
-    "SMS queued for the configured ResQFlow Android device."
-        if clarification.sms_status == "PENDING"
-        else "SMS device integration is not configured."
+        "SMS queued; Android wake-up sent."
+        if push_sent
+        else (
+            "SMS is pending, but the Android wake-up failed or no device token is registered."
+            if clarification.sms_status == "PENDING"
+            else "SMS device integration is not configured."
+        )
     )
     return result
+@router.post("/sms-device/register-token")
+def register_sms_device_token(
+    payload: SmsDeviceTokenInput,
+    db: Session = Depends(get_db),
+    _device=Depends(require_sms_device),
+):
+    token = payload.token.strip()
 
+    if not token:
+        raise HTTPException(status_code=400, detail="FCM token is required.")
+
+    registration = (
+        db.query(SmsDeviceRegistration)
+        .filter(SmsDeviceRegistration.id == 1)
+        .first()
+    )
+
+    if registration:
+        registration.fcm_token = token
+    else:
+        registration = SmsDeviceRegistration(id=1, fcm_token=token)
+        db.add(registration)
+
+    db.commit()
+
+    return {"registered": True}
 @router.get("/sms-device/next")
 def get_next_sms_for_device(
     db: Session = Depends(get_db),

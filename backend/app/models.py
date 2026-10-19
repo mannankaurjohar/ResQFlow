@@ -834,3 +834,15 @@ class OfficialWarehouse(Base):
         DateTime,
         default=lambda: datetime.now(IST)
     )
+class SmsDeviceRegistration(Base):
+    __tablename__ = "sms_device_registration"
+
+    # One active SMS receiver device; registration replaces its token.
+    id = Column(Integer, primary_key=True, default=1)
+    fcm_token = Column(Text, nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(IST),
+        onupdate=lambda: datetime.now(IST),
+        nullable=False,
+    )
