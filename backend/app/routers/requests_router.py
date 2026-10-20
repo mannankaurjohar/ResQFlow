@@ -835,7 +835,16 @@ DEFAULT_DUPLICATE_QUESTION = (
 
 
 def _normalise_clarification_phone(phone: Optional[str]) -> str:
-    return re.sub(r"\D", "", phone or "")
+    digits = re.sub(r"\D", "", phone or "")
+
+    # Normalize Indian mobile numbers to the same 10-digit format.
+    if len(digits) == 12 and digits.startswith("91"):
+        return digits[2:]
+
+    if len(digits) == 11 and digits.startswith("0"):
+        return digits[1:]
+
+    return digits
 
 
 def _clarification_payload(item: RequestClarification) -> dict:
