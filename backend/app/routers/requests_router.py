@@ -1911,6 +1911,19 @@ def receive_inbound_sms(
 
             if len(matching_clarifications) == 1:
                 clarification, req = matching_clarifications[0]
+                expected_outgoing_sms = (
+                    f"ResQFlow request {req.tracking_code}: "
+                    f"{clarification.message}\n"
+                    "Reply to this SMS in your own words to answer the question. "
+                    "Please reply from the phone number registered with your request."
+                )
+
+                if " ".join(body.split()) == " ".join(expected_outgoing_sms.split()):
+                    db.rollback()
+                    return {
+                        "status": "IGNORED",
+                        "reason": "outgoing_clarification_message",
+                    }
 
                 updated = (
                     db.query(RequestClarification)
